@@ -19,8 +19,6 @@ STRICT RULES:
 KEY LOGIC:
 - Best batch = highest risk tier + lowest OHI
 - Tier priority: Emergency > Action > Alert > Normal
-- If batch data missing, respond exactly:
-  Insufficient batch data to make a recommendation.
 
 SYSTEM CONTEXT:
 ${JSON.stringify(context, null, 2)}
