@@ -1,240 +1,65 @@
-﻿# KANDA_KRATES
- 🧅 Kanda Krates
+🧅 Kanda Krates
+🤖 AI-Powered Modular Onion Storage & Spoilage Prevention System
+📌 Overview
 
-AI-Powered Modular Onion Storage & Spoilage Prevention System
-
-Kanda Krates is a smart, modular, and AI-driven onion storage solution designed to reduce post-harvest losses, improve farmer decision-making, and enable sustainable storage of onions at scale.
-It combines IoT sensors, edge AI, ethylene control, and agentic AI decision support to detect spoilage before it becomes visible and recommend timely actions such as ventilation adjustment or urgent sale.
+Kanda Krates is a smart, modular, and AI-driven onion storage solution designed to reduce post-harvest losses, improve farmer decision-making, and enable sustainable onion storage at scale. The system integrates IoT sensors, edge artificial intelligence, ethylene control mechanisms, and agentic AI decision support to detect spoilage at an early stage—often before it becomes visible—and to recommend timely corrective actions such as ventilation adjustment or urgent sale. By shifting onion storage from a reactive to a predictive approach, Kanda Krates addresses a critical gap in post-harvest agricultural infrastructure.
 
 🚨 Problem Statement
 
-India loses 20–30% of onions post-harvest due to:
-
-Poor ventilation and uncontrolled humidity
-
-Ethylene-induced sprouting
-
-Undetected microbial spoilage
-
-Manual inspection delays
-
-Lack of real-time, actionable insights for farmers
-
-Traditional godowns are reactive, not predictive.
-
-Kanda Krates makes onion storage proactive, intelligent, and farmer-friendly.
+India loses approximately 20–30% of its onion produce after harvest due to poor ventilation, uncontrolled humidity, ethylene-induced sprouting, undetected microbial spoilage, and delays caused by manual inspection methods. Farmers typically lack access to real-time, actionable insights that could help prevent losses before they escalate. Traditional godown-based storage systems respond only after visible damage has occurred, making them inefficient and economically unsustainable. Kanda Krates directly addresses this challenge by enabling proactive, data-driven storage management.
 
 💡 Solution Overview
 
-Kanda Krates introduces 5-ton modular storage units (krates) equipped with sensors and AI models that:
+Kanda Krates introduces 5-ton modular storage units, referred to as krates, each equipped with a suite of sensors and AI models. These units continuously monitor storage conditions, predict spoilage risks using machine learning, regulate ventilation and ethylene scrubbing mechanisms, and generate simple, actionable recommendations for farmers. The system is designed to operate reliably even in low-connectivity environments through local edge inference, making it suitable for rural and semi-urban deployment.
 
-Continuously monitor storage health
+🧠 Onion Health Index (OHI)
 
-Predict spoilage early using ML
+At the core of Kanda Krates is the Onion Health Index (OHI), a single, intuitive score ranging from 0 to 100 that represents overall storage health. Based on this score, storage conditions are categorized into four levels: Normal, Alert, Action Required, and Emergency. This abstraction allows farmers to quickly understand storage conditions without interpreting complex sensor data.
 
-Control ventilation and ethylene scrubbing
+🌡️ Multi-Sensor Monitoring
 
-Generate simple, actionable recommendations
+Each krate is equipped with multi-sensor monitoring capabilities, including temperature, humidity, carbon dioxide (CO₂) concentration, and hydrogen sulfide (H₂S) levels, with optional weight monitoring to track batch degradation over time. H₂S serves as a critical early indicator of microbial spoilage, enabling intervention before visible rot occurs.
 
-Work reliably even with limited internet connectivity
+🤖 AI-Powered Spoilage Intelligence
 
-🧠 Key Features
-🔍 1. Onion Health Index (OHI)
+The intelligence layer of Kanda Krates consists of multiple machine learning models working together. LSTM-based time-series models analyze trends in gas concentration and micro-climatic data to detect early spoilage patterns. Random Forest classifiers categorize each krate into low, medium, or high risk, allowing prioritization of interventions. Shelf-life estimation models predict the remaining safe storage duration to support sell-or-hold decisions, while anomaly detection using Isolation Forest and statistical thresholds identifies sudden gas spikes or micro-climate deviations indicating localized spoilage.
 
-A single, easy-to-understand score (0–100) representing overall onion storage health.
+🌬️ Adaptive Ventilation Control
 
-Normal
+To actively maintain optimal storage conditions, Kanda Krates employs AI-assisted adaptive ventilation control. Airflow is dynamically adjusted to prevent gas buildup while minimizing dehydration and unnecessary energy consumption. This ensures efficient preservation of onion quality throughout the storage period.
 
-Alert
+🧪 Ethylene Scrubbing System
 
-Action Required
+Kanda Krates integrates a KMnO₄-based ethylene scrubbing system that absorbs ethylene gas released during storage. By reducing ethylene concentration, the system slows sprouting and aging without introducing chemicals directly onto the produce, thereby extending shelf life in a safe and controlled manner.
 
-Emergency
+🧑‍🌾 Agentic AI – Farmer Decision Support
 
-🌡️ 2. Multi-Sensor Monitoring
+A key differentiator of Kanda Krates is its agentic AI decision-support layer, which translates complex sensor readings and AI outputs into simple, actionable recommendations. Instead of presenting raw data, the system provides clear guidance such as “Safe to store,” “Increase ventilation,” “Inspect within 24 hours,” or “Sell immediately to avoid loss.” Multilingual alert support ensures accessibility across diverse farming communities.
 
-Each krate monitors:
+🌱 Sustainable & Scalable Design
 
-Temperature
+Kanda Krates uses modular HDPE frames that are durable, moisture-resistant, recyclable, and stackable. This design supports scalable deployment ranging from individual farmers to cooperative societies and government-operated storage facilities. Edge-based intelligence reduces cloud dependency, lowers operating costs, and improves system reliability.
 
-Humidity
+📱 Mobile Application
 
-CO₂ concentration
-
-H₂S (early microbial spoilage indicator)
-
-Weight (optional batch degradation tracking)
-
-🤖 3. AI-Powered Spoilage Intelligence
-
-Early Spoilage Prediction (LSTM)
-
-Time-series models detect abnormal gas & climate trends before visible spoilage
-
-Risk Classification (Random Forest)
-
-Classifies krates into Low / Medium / High Risk
-
-Shelf-Life Estimation
-
-Predicts remaining safe storage duration
-
-Anomaly Detection (Isolation Forest + Statistical Thresholds)
-
-Detects sudden gas spikes or micro-climate deviations
-
-🌬️ 4. Adaptive Ventilation Control
-
-AI-assisted airflow regulation
-
-Prevents excess dehydration while avoiding gas buildup
-
-Rule-based + regression models for energy-efficient control
-
-🧪 5. Ethylene Scrubbing System
-
-KMnO₄-based ethylene scrubbers
-
-Slows sprouting and aging
-
-Improves shelf life without chemicals on produce
-
-🧑‍🌾 6. Agentic AI – Farmer Decision Support
-
-An agentic AI layer converts complex sensor data into simple recommendations:
-
-“Safe to store”
-
-“Increase ventilation”
-
-“Inspect within 24 hours”
-
-“Sell immediately to avoid loss”
-
-Supports multilingual alerts for accessibility.
-
-🌱 7. Sustainable & Scalable Design
-
-HDPE modular frames (durable, recyclable, moisture-resistant)
-
-Stackable, expandable krates
-
-Designed for rural and semi-urban deployment
-
-🏗️ System Architecture
-[ Sensors Layer ]
-  ├─ Temperature
-  ├─ Humidity
-  ├─ CO₂
-  ├─ H₂S
-  └─ Weight (optional)
-        ↓
-[ Edge Controller (ESP32 / Raspberry Pi) ]
-  ├─ Data preprocessing
-  ├─ ML inference
-  ├─ OHI calculation
-        ↓
-[ AI & Agentic Layer ]
-  ├─ LSTM (spoilage prediction)
-  ├─ Random Forest (risk classification)
-  ├─ Isolation Forest (anomaly detection)
-  ├─ Decision Agent (recommendations)
-        ↓
-[ Farmer App / Dashboard ]
-  ├─ OHI score
-  ├─ Alerts & notifications
-  ├─ Action recommendations
-
-🛠️ Tech Stack
-Hardware
-
-ESP32 / Raspberry Pi (Edge controller)
-
-Gas sensors (CO₂, H₂S)
-
-Temperature & Humidity sensors
-
-Load cell (optional)
-
-Ventilation system
-
-KMnO₄ ethylene scrubber
-
-Software & AI
-
-Python (ML & analytics)
-
-LSTM, Random Forest, Isolation Forest
-
-Rule-based + ML regression control
-
-Agentic AI inference layer
-
-React Native (Expo, TSX) – Farmer app
-
-Local edge inference (low dependency on cloud)
-
-📱 Mobile App Features
-
-Real-time Onion Health Index
-
-Color-coded risk tiers
-
-Sensor dashboards
-
-Multilingual alerts
-
-One-tap acknowledgement
-
-Farmer-friendly recommendations (no technical jargon)
+The companion mobile application provides real-time visualization of the Onion Health Index, color-coded risk tiers, sensor dashboards, multilingual alerts, and one-tap acknowledgements. The interface is intentionally farmer-friendly, avoiding technical jargon and focusing on clear, decision-oriented insights.
 
 🎯 Use Cases
 
-Farmer-owned onion storage units
-
-Cooperative societies
-
-Cold-storage alternatives for dry onions
-
-Government post-harvest infrastructure
-
-Agri-logistics and mandis
+Kanda Krates is suitable for farmer-owned onion storage units, cooperative societies, cold-storage alternatives for dry onions, government post-harvest infrastructure, and agri-logistics and mandi supply chains. The modular architecture allows flexible deployment across varying scales and regions.
 
 🌍 Impact
 
-Reduces post-harvest losses
-
-Improves farmer income
-
-Minimizes food waste
-
-Promotes sustainable agriculture
-
-Enables data-driven storage decisions
+By enabling early spoilage detection and proactive intervention, Kanda Krates reduces post-harvest losses, improves farmer income, minimizes food waste, and promotes sustainable agricultural practices. The system empowers farmers with data-driven storage decisions that directly translate into economic and environmental benefits.
 
 🚀 Future Scope
 
-Market price forecasting + sell timing AI
+Planned enhancements include market price forecasting and sell-timing intelligence, integration with mandi pricing APIs, solar-powered krates, expansion to crops such as potatoes and garlic, and large-scale government deployment dashboards.
 
-Integration with mandi pricing APIs
+🧪 Project Status
 
-Solar-powered krates
-
-Expansion to potatoes, garlic, and other produce
-
-Government-scale deployment dashboards
-
-🧪 Hackathon Status
-
-Prototype-ready
-
-Sensor simulation supported
-
-App demo available
-
-AI logic demonstrated with sample data
+The project is prototype-ready, with sensor data simulation supported, AI logic demonstrated using sample datasets, and a functional mobile application available for demonstration in hackathons and pilot deployments.
 
 📌 Tagline
 
-“Store Smart. Sell Right. Save Every Onion.”
-
+Store Smart. Sell Right. Save Every Onion.
