@@ -83,9 +83,18 @@ export default function TabLayout() {
       <Tabs.Screen
         name="leaderboard"
         options={{
-          title: 'Rank',
+          title: 'Batches',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "trophy" : "trophy-outline"} size={24} color={color} />
+            <Ionicons name={focused ? "cube" : "cube-outline"} size={24} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profile',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "person-circle" : "person-circle-outline"} size={24} color={color} />
           ),
         }}
       />

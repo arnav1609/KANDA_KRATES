@@ -12,7 +12,7 @@ WebBrowser.maybeCompleteAuthSession();
 
 // Google Client IDs — configure in Google Cloud Console for each platform
 const GOOGLE_WEB_CLIENT_ID =
-  "619303753666-bqf6p437o31njjit6b65v036f42t98md.apps.googleusercontent.com";
+  "656747164760-hbpskhro5arncfp5ec9h5djaql10dvmr.apps.googleusercontent.com";
 // iOS: Create an "iOS" OAuth client ID in Google Cloud Console, then paste it here
 const GOOGLE_IOS_CLIENT_ID = "656747164760-s3ncaco65qpr74a8sa0a9nr9obdsig8r.apps.googleusercontent.com";
 const GOOGLE_ANDRIOD_CLIENT_ID = "656747164760-pvt6d5fksilb2mgbcs00fe3gf7vfqns2.apps.googleusercontent.com";
@@ -136,19 +136,20 @@ export default function Login() {
 
   const t = TEXT[language];
 
-  const [request, response, promptAsync] = Google.useAuthRequest({
+  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
     webClientId: GOOGLE_WEB_CLIENT_ID,
     iosClientId: GOOGLE_IOS_CLIENT_ID,
+    androidClientId: GOOGLE_ANDRIOD_CLIENT_ID,
   });
 
-  // Hide Google SSO on iOS until an iOS OAuth client ID is configured
-  const showGoogleButton = Platform.OS !== "ios" || !!GOOGLE_IOS_CLIENT_ID;
+  const showGoogleButton = true;
 
   useEffect(() => {
     if (response?.type === "success") {
-      const { authentication } = response;
-      if (authentication?.accessToken) {
-        loginWithGoogle(authentication.accessToken).then(({ success }) => {
+      // useIdTokenAuthRequest returns the ID token in params
+      const idToken = response.params?.id_token;
+      if (idToken) {
+        loginWithGoogle(idToken).then(({ success }) => {
           if (success) {
             router.replace("/(tabs)");
           }
@@ -208,8 +209,8 @@ export default function Login() {
           </LinearGradient>
         </TouchableOpacity>
 
-        {/* Google Login — only shown when a valid client ID is available for current platform */}
-        {showGoogleButton && (
+        {/* Google Login — requires a native/production build; blocked in Expo Go by Google policy */}
+        {showGoogleButton && false && (
           <TouchableOpacity
             style={styles.googleButton}
             disabled={!request}

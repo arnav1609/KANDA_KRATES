@@ -363,7 +363,7 @@ export default function Dashboard() {
 
       // Fetch Live Market Data
       try {
-        const marketRes = await fetch(API_ENDPOINTS.marketPrice || "http://192.168.0.100:5000/api/market/price/onion");
+        const marketRes = await secureRequest(API_ENDPOINTS.marketPrice);
         const mData = await marketRes.json();
         setMarketPrice(mData);
       } catch (err) {
@@ -372,7 +372,7 @@ export default function Dashboard() {
 
       // Fetch Sell/Hold Advisory for crate1
       try {
-        const advisoryRes = await fetch(`${API_BASE_URL}${API_ENDPOINTS.advisory("crate1")}`);
+        const advisoryRes = await secureRequest(API_ENDPOINTS.advisory("crate1"));
         const aData = await advisoryRes.json();
         setAdvisory(aData);
       } catch (err) {

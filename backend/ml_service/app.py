@@ -127,6 +127,20 @@ def ensemble_predict(features_scaled: np.ndarray):
     ohi_ensemble = 0.4 * ohi_rf + 0.4 * ohi_gb + 0.2 * ohi_ridge
     ohi_final = int(np.clip(round(ohi_ensemble), 0, 100))
 
+    # ── Reconcile tier with OHI score (prevents inconsistency) ──
+    # OHI bands: 0–35 Emergency, 36–55 Action, 56–75 Alert, 76–100 Normal
+    if ohi_final < 36:
+        ohi_tier = "Emergency"
+    elif ohi_final < 56:
+        ohi_tier = "Action"
+    elif ohi_final < 76:
+        ohi_tier = "Alert"
+    else:
+        ohi_tier = "Normal"
+
+    # Override ML vote with OHI-derived tier — OHI is the ground truth
+    final_tier = ohi_tier
+
     # ── Days Remaining ──
     days = rf_reg_days.predict(features_scaled)[0]
     days_final = round(max(0, days), 1)

@@ -18,13 +18,18 @@ import {
   validateUsername,
   validatePhone,
   validatePassword,
+  secureRequest,
+  API_ENDPOINTS,
 } from "../../config/api";
 
 const TRANSLATIONS: Record<LanguageCode, any> = {
   en: {
     adminLogin: "Admin Login",
     farmerLogin: "Farmer Login",
+    adminSignUp: "Admin Sign Up",
+    farmerSignUp: "Farmer Sign Up",
     subtitle: "Enter your credentials securely",
+    subtitleSignUp: "Create your account to get started",
     username: "Username",
     usernamePh: "Enter username",
     phone: "Phone Number",
@@ -32,9 +37,15 @@ const TRANSLATIONS: Record<LanguageCode, any> = {
     password: "Password",
     passwordPh: "Min 6 characters",
     secureLogin: "Secure Login",
+    signUpBtn: "Create Account",
     securityText: "Your data is encrypted and stored securely",
     loginFailed: "Login Failed",
+    signUpFailed: "Sign Up Failed",
     serverError: "Could not connect to server",
+    alreadyHave: "Already have an account?",
+    noAccount: "Don't have an account?",
+    loginLink: "Login",
+    signUpLink: "Sign Up",
   },
   hi: {
     adminLogin: "प्रशासक लॉगिन",
@@ -194,6 +205,7 @@ export default function Credentials() {
   const { login } = useAuth();
   const { language } = useLanguage();
 
+  const [isSignUp, setIsSignUp] = useState(false);
   const [username, setUsername] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [password, setPassword] = useState("");
@@ -201,72 +213,71 @@ export default function Credentials() {
   const [loading, setLoading] = useState(false);
 
   const t = TRANSLATIONS[language] || TRANSLATIONS.en;
+  const isAdmin = type === "admin";
+  const accentColor = isAdmin ? "#6B4EAB" : "#1E6F5C";
+  const accentBg   = isAdmin ? "#EBE5F6" : "#E2F1ED";
 
-  // Inline validation errors
-  const [errors, setErrors] = useState<{
-    username?: string;
-    phone?: string;
-    password?: string;
-  }>({});
+  const [errors, setErrors] = useState<{ username?: string; phone?: string; password?: string; }>({});
 
   const validate = (): boolean => {
-    const sanitizedUser = sanitizeInput(username);
-    const sanitizedPhone = sanitizeInput(phoneNumber);
-
-    const usernameErr = validateUsername(sanitizedUser);
-    const phoneErr = validatePhone(sanitizedPhone);
+    const usernameErr = validateUsername(sanitizeInput(username));
+    const phoneErr    = validatePhone(sanitizeInput(phoneNumber));
     const passwordErr = validatePassword(password);
-
-    setErrors({
-      username: usernameErr || undefined,
-      phone: phoneErr || undefined,
-      password: passwordErr || undefined,
-    });
-
+    setErrors({ username: usernameErr || undefined, phone: phoneErr || undefined, password: passwordErr || undefined });
     return !usernameErr && !phoneErr && !passwordErr;
+  };
+
+  const handleSignUp = async () => {
+    if (!validate()) return;
+    setLoading(true);
+    try {
+      const endpoint = isAdmin ? API_ENDPOINTS.adminRegister : API_ENDPOINTS.farmerRegister;
+      const res = await secureRequest(endpoint, {
+        method: "POST",
+        skipAuth: true,
+        body: JSON.stringify({
+          username: sanitizeInput(username),
+          phoneNumber: sanitizeInput(phoneNumber),
+          password,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Registration failed");
+      Alert.alert("Account Created! 🎉", "You can now log in with your credentials.", [
+        { text: "Login Now", onPress: () => { setIsSignUp(false); setPassword(""); } }
+      ]);
+    } catch (err: any) {
+      Alert.alert(t.signUpFailed || "Sign Up Failed", err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleLogin = async () => {
     if (!validate()) return;
-
     setLoading(true);
-
-    const sanitizedUser = sanitizeInput(username);
-    const sanitizedPhone = sanitizeInput(phoneNumber);
-    const role = type === "admin" ? "admin" : "farmer";
-
-    const result = await login(sanitizedUser, sanitizedPhone, password, role);
-
+    const result = await login(sanitizeInput(username), sanitizeInput(phoneNumber), password, isAdmin ? "admin" : "farmer");
     setLoading(false);
-
     if (result.success) {
-      if (role === "farmer") {
-        router.replace("/(tabs)");
-      } else {
-        router.replace("/admin/admin-dashboard");
-      }
+      router.replace(isAdmin ? "/admin/admin-dashboard" : "/(tabs)");
     } else {
       Alert.alert(t.loginFailed, result.error || t.serverError);
     }
   };
 
-  const isAdmin = type === "admin";
-
   return (
     <ScrollView contentContainerStyle={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <View style={[styles.iconCircle, { backgroundColor: isAdmin ? "#EBE5F6" : "#E2F1ED" }]}>
-          <Ionicons
-            name={isAdmin ? "shield-checkmark" : "leaf"}
-            size={32}
-            color={isAdmin ? "#6B4EAB" : "#1E6F5C"}
-          />
+        <View style={[styles.iconCircle, { backgroundColor: accentBg }]}>
+          <Ionicons name={isAdmin ? "shield-checkmark" : "leaf"} size={32} color={accentColor} />
         </View>
-        <Text style={[styles.title, isAdmin && { color: "#6B4EAB" }]}>
-          {isAdmin ? t.adminLogin : t.farmerLogin}
+        <Text style={[styles.title, { color: accentColor }]}>
+          {isSignUp
+            ? (isAdmin ? (t.adminSignUp || "Admin Sign Up") : (t.farmerSignUp || "Farmer Sign Up"))
+            : (isAdmin ? t.adminLogin : t.farmerLogin)}
         </Text>
-        <Text style={styles.subtitle}>{t.subtitle}</Text>
+        <Text style={styles.subtitle}>{isSignUp ? (t.subtitleSignUp || t.subtitle) : t.subtitle}</Text>
       </View>
 
       {/* Username */}
@@ -274,14 +285,7 @@ export default function Credentials() {
         <Text style={styles.label}>{t.username}</Text>
         <View style={[styles.inputRow, errors.username ? styles.inputError : null]}>
           <Ionicons name="person-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder={t.usernamePh}
-            value={username}
-            onChangeText={setUsername}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
+          <TextInput style={styles.input} placeholder={t.usernamePh} value={username} onChangeText={setUsername} autoCapitalize="none" autoCorrect={false} />
         </View>
         {errors.username && <Text style={styles.errorText}>{errors.username}</Text>}
       </View>
@@ -291,14 +295,7 @@ export default function Credentials() {
         <Text style={styles.label}>{t.phone}</Text>
         <View style={[styles.inputRow, errors.phone ? styles.inputError : null]}>
           <Ionicons name="call-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder={t.phonePh}
-            value={phoneNumber}
-            onChangeText={setPhoneNumber}
-            keyboardType="phone-pad"
-            maxLength={10}
-          />
+          <TextInput style={styles.input} placeholder={t.phonePh} value={phoneNumber} onChangeText={setPhoneNumber} keyboardType="phone-pad" maxLength={10} />
         </View>
         {errors.phone && <Text style={styles.errorText}>{errors.phone}</Text>}
       </View>
@@ -308,29 +305,18 @@ export default function Credentials() {
         <Text style={styles.label}>{t.password}</Text>
         <View style={[styles.inputRow, errors.password ? styles.inputError : null]}>
           <Ionicons name="lock-closed-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
-          <TextInput
-            style={[styles.input, { flex: 1 }]}
-            placeholder={t.passwordPh}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry={!showPassword}
-            autoCapitalize="none"
-          />
+          <TextInput style={[styles.input, { flex: 1 }]} placeholder={t.passwordPh} value={password} onChangeText={setPassword} secureTextEntry={!showPassword} autoCapitalize="none" />
           <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeBtn}>
-            <Ionicons
-              name={showPassword ? "eye-off-outline" : "eye-outline"}
-              size={22}
-              color="#9CA3AF"
-            />
+            <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={22} color="#9CA3AF" />
           </TouchableOpacity>
         </View>
         {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
       </View>
 
-      {/* Login Button */}
+      {/* Primary Button */}
       <TouchableOpacity
-        style={[styles.loginButton, isAdmin && { backgroundColor: "#6B4EAB" }]}
-        onPress={handleLogin}
+        style={[styles.loginButton, { backgroundColor: accentColor }]}
+        onPress={isSignUp ? handleSignUp : handleLogin}
         disabled={loading}
         activeOpacity={0.85}
       >
@@ -338,18 +324,26 @@ export default function Credentials() {
           <ActivityIndicator color="#fff" />
         ) : (
           <View style={styles.buttonInner}>
-            <Ionicons name="log-in-outline" size={20} color="#fff" />
-            <Text style={styles.loginButtonText}>{t.secureLogin}</Text>
+            <Ionicons name={isSignUp ? "person-add-outline" : "log-in-outline"} size={20} color="#fff" />
+            <Text style={styles.loginButtonText}>{isSignUp ? (t.signUpBtn || "Create Account") : t.secureLogin}</Text>
           </View>
         )}
+      </TouchableOpacity>
+
+      {/* Toggle Sign Up ↔ Login */}
+      <TouchableOpacity style={styles.toggleRow} onPress={() => { setIsSignUp(!isSignUp); setErrors({}); }}>
+        <Text style={styles.toggleText}>
+          {isSignUp ? (t.alreadyHave || "Already have an account?") : (t.noAccount || "Don't have an account?")}
+        </Text>
+        <Text style={[styles.toggleLink, { color: accentColor }]}>
+          {" "}{isSignUp ? (t.loginLink || "Login") : (t.signUpLink || "Sign Up")}
+        </Text>
       </TouchableOpacity>
 
       {/* Security badge */}
       <View style={styles.securityBadge}>
         <Ionicons name="shield-checkmark" size={16} color="#16A34A" />
-        <Text style={styles.securityText}>
-          {t.securityText}
-        </Text>
+        <Text style={styles.securityText}>{t.securityText}</Text>
       </View>
     </ScrollView>
   );
@@ -451,5 +445,19 @@ const styles = StyleSheet.create({
   securityText: {
     fontSize: 12,
     color: "#6B7280",
+  },
+  toggleRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 18,
+  },
+  toggleText: {
+    fontSize: 14,
+    color: "#6B7280",
+  },
+  toggleLink: {
+    fontSize: 14,
+    fontWeight: "700",
   },
 });

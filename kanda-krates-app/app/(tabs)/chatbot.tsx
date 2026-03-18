@@ -194,7 +194,7 @@ export default function ChatbotScreen() {
       speak(ans);
     } catch (err) {
       console.log("Chat error:", err);
-      // Optional: add a generic fallback error message to the UI
+      setMessages([...newMessages, { id: (Date.now() + 1).toString(), role: "assistant", text: "⚠️ Could not reach the AI. Check your connection and try again." }]);
     } finally {
       setLoading(false);
     }

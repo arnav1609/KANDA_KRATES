@@ -18,12 +18,12 @@ export async function askGroq(prompt) {
         messages: [
           {
             role: "system",
-            content:
-              "You are an expert agricultural AI assistant helping farmers with onion storage, spoilage prevention, and post-harvest decisions. Give clear, practical, actionable advice.",
+            content: "You are Kanda Mitra — a warm, experienced, and trusted agricultural AI assistant helping Indian onion farmers with storage, spoilage, selling decisions, and general farming advice. Always be practical, empathetic, and use simple language. Give specific actionable advice.",
           },
           { role: "user", content: prompt },
         ],
-        temperature: 0.4,
+        temperature: 0.5,
+        max_tokens: 400,
       }),
     }
   );

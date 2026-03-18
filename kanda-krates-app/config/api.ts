@@ -12,19 +12,26 @@ export const API_BASE_URL = "http://192.168.1.10:5000";
 // ──── Endpoints ────
 export const API_ENDPOINTS = {
   login: "/api/farmer",
+  farmerRegister: "/api/farmer/register",
+  adminRegister: "/api/admin/register",
   sensors: (crate: string, batch: string) =>
     `/api/sensors/${crate}/${batch}`,
+  allSensors: "/api/sensors",
   history: (crate: string) => `/api/history/${crate}`,
   historyHealth: (crate: string, lang: string) => `/api/history/health/${crate}/${lang}`,
   chat: "/api/chat",
   farmers: "/api/farmers",
+  farmer: (username: string) => `/api/farmers/${username}`,
   crates: "/api/crates",
+  crate: (crateId: string) => `/api/crates/${crateId}`,
+  crateReassign: (crateId: string) => `/api/crates/${crateId}/reassign`,
   marketPrice: "/api/market/price/onion",
   advisory: (crateId: string) => `/api/advisory/${crateId}`,
+  fleetAnalytics: "/api/analytics/fleet",
 } as const;
 
 // ──── Request Timeout (ms) ────
-const REQUEST_TIMEOUT = 15000;
+const REQUEST_TIMEOUT = 20000;
 
 // ──── Secure Request Helper ────
 

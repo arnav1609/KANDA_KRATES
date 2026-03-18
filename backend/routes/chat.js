@@ -9,15 +9,15 @@ router.post("/", async (req, res) => {
   try {
     console.log("📥 Incoming request:", req.body);
 
-    const { question } = req.body;
+    const { question, language = "en" } = req.body;
     if (!question) {
       return res.status(400).json({ error: "Question is required" });
     }
 
-    const context = buildContext();
-    console.log("📊 Context built");
+    const context = buildContext(question);   // ← pass question so extractBatch works
+    console.log("📊 Context built:", context ? "with batch data" : "general question");
 
-    const prompt = buildFarmerPrompt(question, context);
+    const prompt = buildFarmerPrompt(question, context, language);
     console.log("🧠 Prompt ready");
 
     const answer = await askGroq(prompt);

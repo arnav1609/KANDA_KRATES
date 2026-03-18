@@ -145,9 +145,10 @@ export async function runAgenticMonitor(sensorStore, mqttClient, FarmerModel) {
       try {
         const farmers = await FarmerModel.find({});
         if (farmers.length > 0) {
-          // Send SMS to the first farmer (or matching farmer if relationships were modeled)
           const targetFarmer = farmers[0];
-          await triggerEmergencySMS(targetFarmer.phoneNumber, crateId, analysis.reason);
+          // Use override number from .env if set, otherwise use farmer's DB number
+          const alertPhone = process.env.ALERT_PHONE_OVERRIDE || targetFarmer.phoneNumber;
+          await triggerEmergencySMS(alertPhone, crateId, analysis.reason);
         }
       } catch (e) {
         console.error("DB Error finding farmer:", e);

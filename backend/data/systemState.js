@@ -43,12 +43,10 @@ function calculateOHI(s) {
 /* ================= RISK STATUS ================= */
 
 function statusFromOHI(ohi) {
-
-  if (ohi < 55) return "Emergency";
-  if (ohi < 70) return "Action";
-  if (ohi < 85) return "Alert";
-
-  return "Normal";
+  if (ohi < 36) return "Emergency";   // 0–35
+  if (ohi < 56) return "Action";      // 36–55
+  if (ohi < 76) return "Alert";       // 56–75
+  return "Normal";                    // 76–100
 }
 
 
@@ -161,11 +159,9 @@ export function createDynamicSystemState() {
 /* ================= EXTRACT BATCH FROM QUESTION ================= */
 
 export function extractBatch(question) {
-
+  if (!question || typeof question !== "string") return null;
   const match = question.match(/B\d+/i);
-
   return match ? match[0].toUpperCase() : null;
-
 }
 
 

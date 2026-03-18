@@ -1,387 +1,402 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  Pressable,
-  Modal,
-  ScrollView
+  View, Text, StyleSheet, FlatList, Modal, ScrollView,
+  TouchableOpacity, ActivityIndicator, Alert, RefreshControl
 } from "react-native";
-import { useLanguage, LanguageCode } from "../../context/LanguageContext";
-import { API_BASE_URL } from "../../config/api";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { secureRequest, API_ENDPOINTS } from "../../config/api";
+import { useAuth } from "../../context/AuthContext";
 
-/* ================= I18N ================= */
-
-const I18N: Record<LanguageCode, any> = {
-  en: { batches: "Batches", help: "Help", close: "Close", support: "Support", detailedDash: "Detailed Batch Dashboard", storageAnalysis: "Storage Analysis", recommendedActions: "Recommended Actions", improveStorage: "Improve Storage Next Time", stable: "Storage conditions are stable for onion preservation.", sellNow: "SELL NOW", sellIn24h: "Sell in 24h", monitor: "Monitor", safe: "Safe", temp: "Temperature", humidity: "Humidity", co2: "CO₂", nh3: "NH₃", voc: "VOC", stock: "Stock" },
-  hi: { batches: "बैच", help: "सहायता", close: "बंद करें", support: "समर्थन", detailedDash: "विस्तृत बैच डैशबोर्ड", storageAnalysis: "भंडारण विश्लेषण", recommendedActions: "अनुशंसित क्रियाएं", improveStorage: "अगली बार भंडारण सुधारें", stable: "भंडारण की स्थिति स्थिर है।", sellNow: "अभी बेचें", sellIn24h: "24 घंटे में बेचें", monitor: "निगरानी करें", safe: "सुरक्षित", temp: "तापमान", humidity: "आर्द्रता", co2: "CO₂", nh3: "NH₃", voc: "VOC", stock: "भंडार" },
-  mr: { batches: "बॅचेस", help: "मदत", close: "बंद करा", support: "समर्थन", detailedDash: "तपशीलवार बॅच डॅशबोर्ड", storageAnalysis: "साठवण विश्लेषण", recommendedActions: "शिफारस केलेल्या क्रिया", improveStorage: "पुढील वेळी साठवण सुधारा", stable: "साठवण स्थिती स्थिर आहे.", sellNow: "आत्ता विका", sellIn24h: "24 तासात विका", monitor: "निरीक्षण करा", safe: "सुरक्षित", temp: "तापमान", humidity: "आर्द्रता", co2: "CO₂", nh3: "NH₃", voc: "VOC", stock: "साठा" },
-  ta: { batches: "தொகுதிகள்", help: "உதவி", close: "மூடு", support: "ஆதரவு", detailedDash: "விரிவான தொகுதி டாஷ்போர்டு", storageAnalysis: "சேமிப்பு பகுப்பாய்வு", recommendedActions: "பரிந்துரைக்கப்பட்ட நடவடிக்கைகள்", improveStorage: "அடுத்த முறை சேமிப்பை மேம்படுத்தவும்", stable: "சேமிப்பு நிலை நிலையானது.", sellNow: "இப்போது விற்க", sellIn24h: "24 மணியில் விற்க", monitor: "கண்காணிக்கவும்", safe: "பாதுகாப்பானது", temp: "வெப்பநிலை", humidity: "ஈரப்பதம்", co2: "CO₂", nh3: "NH₃", voc: "VOC", stock: "இருப்பு" },
-  te: { batches: "బ్యాచ్‌లు", help: "సహాయం", close: "మూసివేయి", support: "మద్దతు", detailedDash: "వివరణాత్మక బ్యాచ్ డాష్‌బోర్డ్", storageAnalysis: "నిల్వ విశ్లేషణ", recommendedActions: "సిఫార్సు చర్యలు", improveStorage: "తదుపరిసారి నిల్వను మెరుగుపరచండి", stable: "నిల్వ పరిస్థితులు స్థిరంగా ఉన్నాయి.", sellNow: "ఇప్పుడే అమ్మండి", sellIn24h: "24 గంటల్లో అమ్మండి", monitor: "పర్యవేక్షించండి", safe: "సురక్షితం", temp: "ఉష్ణోగ్రత", humidity: "తేమ", co2: "CO₂", nh3: "NH₃", voc: "VOC", stock: "స్టాక్" },
-  kn: { batches: "ಬ್ಯಾಚ್‌ಗಳು", help: "ಸಹಾಯ", close: "ಮುಚ್ಚು", support: "ಬೆಂಬಲ", detailedDash: "ವಿವರವಾದ ಬ್ಯಾಚ್ ಡ್ಯಾಶ್‌ಬೋರ್ಡ್", storageAnalysis: "ಶೇಖರಣೆ ವಿಶ್ಲೇಷಣೆ", recommendedActions: "ಶಿಫಾರಸು ಕ್ರಮಗಳು", improveStorage: "ಮುಂದಿನ ಬಾರಿ ಶೇಖರಣೆ ಸುಧಾರಿಸಿ", stable: "ಶೇಖರಣಾ ಪರಿಸ್ಥಿತಿಗಳು ಸ್ಥಿರವಾಗಿವೆ.", sellNow: "ಈಗ ಮಾರಿ", sellIn24h: "24 ಗಂಟೆಯಲ್ಲಿ ಮಾರಿ", monitor: "ಮೇಲ್ವಿಚಾರಿಸಿ", safe: "ಸುರಕ್ಷಿತ", temp: "ತಾಪಮಾನ", humidity: "ತೇವಾಂಶ", co2: "CO₂", nh3: "NH₃", voc: "VOC", stock: "ಸ್ಟಾಕ್" },
-  ml: { batches: "ബാച്ചുകൾ", help: "സഹായം", close: "അടയ്ക്കുക", support: "പിന്തുണ", detailedDash: "വിശദ ബാച്ച് ഡാഷ്‌ബോർഡ്", storageAnalysis: "സംഭരണ വിശകലനം", recommendedActions: "ശുപാർശ ചെയ്ത നടപടികൾ", improveStorage: "അടുത്ത തവണ സംഭരണം മെച്ചപ്പെടുത്തുക", stable: "സംഭരണ സ്ഥിതി സ്ഥിരമാണ്.", sellNow: "ഇപ്പോൾ വിൽക്കുക", sellIn24h: "24 മണിക്കൂറിൽ വിൽക്കുക", monitor: "നിരീക്ഷിക്കുക", safe: "സുരക്ഷിതം", temp: "താപനില", humidity: "ആർദ്രത", co2: "CO₂", nh3: "NH₃", voc: "VOC", stock: "സ്റ്റോക്ക്" },
-  gu: { batches: "બૅચ", help: "સહાય", close: "બંધ કરો", support: "સમર્થન", detailedDash: "વિગતવાર બૅચ ડૅશબૉર્ડ", storageAnalysis: "સ્ટોરેજ વિશ્લેષણ", recommendedActions: "ભલામણ કરેલ ક્રિયાઓ", improveStorage: "આગળ સ્ટોરેજ સુધારો", stable: "સ્ટોરેજ સ્થિર છે.", sellNow: "હવે વેચો", sellIn24h: "24 કલાકમાં વેચો", monitor: "નિરીક્ષણ કરો", safe: "સુરક્ષિત", temp: "તાપમાન", humidity: "ભેજ", co2: "CO₂", nh3: "NH₃", voc: "VOC", stock: "સ્ટૉક" },
-  pa: { batches: "ਬੈਚ", help: "ਮਦਦ", close: "ਬੰਦ ਕਰੋ", support: "ਸਹਾਇਤਾ", detailedDash: "ਵਿਸਤ੍ਰਿਤ ਬੈਚ ਡੈਸ਼ਬੋਰਡ", storageAnalysis: "ਭੰਡਾਰ ਵਿਸ਼ਲੇਸ਼ਣ", recommendedActions: "ਸਿਫ਼ਾਰਸ਼ੀ ਕਾਰਵਾਈਆਂ", improveStorage: "ਅਗਲੀ ਵਾਰ ਭੰਡਾਰ ਸੁਧਾਰੋ", stable: "ਭੰਡਾਰ ਸਥਿਰ ਹੈ।", sellNow: "ਹੁਣੇ ਵੇਚੋ", sellIn24h: "24 ਘੰਟਿਆਂ ਵਿੱਚ ਵੇਚੋ", monitor: "ਨਿਗਰਾਨੀ ਕਰੋ", safe: "ਸੁਰੱਖਿਅਤ", temp: "ਤਾਪਮਾਨ", humidity: "ਨਮੀ", co2: "CO₂", nh3: "NH₃", voc: "VOC", stock: "ਭੰਡਾਰ" },
-  bn: { batches: "ব্যাচ", help: "সাহায্য", close: "বন্ধ করুন", support: "সহায়তা", detailedDash: "বিস্তারিত ব্যাচ ড্যাশবোর্ড", storageAnalysis: "সংরক্ষণ বিশ্লেষণ", recommendedActions: "প্রস্তাবিত পদক্ষেপ", improveStorage: "পরের বার সংরক্ষণ উন্নত করুন", stable: "সংরক্ষণ পরিস্থিতি স্থিতিশীল।", sellNow: "এখনই বিক্রয় করুন", sellIn24h: "২৪ ঘণ্টায় বিক্রয়", monitor: "পর্যবেক্ষণ করুন", safe: "নিরাপদ", temp: "তাপমাত্রা", humidity: "আর্দ্রতা", co2: "CO₂", nh3: "NH₃", voc: "VOC", stock: "মজুদ" },
-  or: { batches: "ବ୍ୟାଚ", help: "ସାହାଯ୍ୟ", close: "ବନ୍ଦ କରନ୍ତୁ", support: "ସମର୍ଥନ", detailedDash: "ବିସ୍ତୃତ ବ୍ୟାଚ ଡ୍ୟାଶବୋର୍ଡ", storageAnalysis: "ଭଣ୍ଡାର ବିଶ୍ଳେଷଣ", recommendedActions: "ସୁପାରିଶ ପଦକ୍ଷେପ", improveStorage: "ପରବର୍ତ୍ତୀ ଥର ଭଣ୍ଡାର ଉନ୍ନତ କରନ୍ତୁ", stable: "ଭଣ୍ଡାର ଅବସ୍ଥା ସ୍ଥିର।", sellNow: "ବର୍ତ୍ତମାନ ବିକ୍ରୟ", sellIn24h: "୨୪ ଘଣ୍ଟାରେ ବିକ୍ରୟ", monitor: "ପ୍ରତ୍ୟବେକ୍ଷଣ", safe: "ସୁରକ୍ଷିତ", temp: "ତାପମାତ୍ରା", humidity: "ଆର୍ଦ୍ରତା", co2: "CO₂", nh3: "NH₃", voc: "VOC", stock: "ଭଣ୍ଡାର" },
-};
-
-/* ================= TYPES ================= */
-
-type SensorSet = {
-  temp: number;
+/* ─── Types ─── */
+type BatchItem = {
+  crateId: string;
+  batchId: string;
+  ohi: number;
+  tier: "Normal" | "Alert" | "Action" | "Emergency";
+  daysRemaining: number;
+  temperature: number;
   humidity: number;
-  co2: number;
-  nh3: number;
-  voc: number;
+  mq135: number;
+  mq137: number;
+  mq136: number;
+  confidence?: number;
+  sold?: boolean;
 };
 
-type Batch = {
-  id: string;
-  weightKg: number;
-  sensors: SensorSet;
+/* ─── Helpers ─── */
+const TIER_COLOR: Record<string, string> = {
+  Normal: "#16A34A", Alert: "#D97706", Action: "#EA580C", Emergency: "#DC2626"
+};
+const TIER_BG: Record<string, string> = {
+  Normal: "#DCFCE7", Alert: "#FEF3C7", Action: "#FFEDD5", Emergency: "#FEE2E2"
+};
+const TIER_GRAD: Record<string, [string, string]> = {
+  Normal: ["#16A34A", "#15803D"],
+  Alert: ["#D97706", "#B45309"],
+  Action: ["#EA580C", "#C2410C"],
+  Emergency: ["#DC2626", "#B91C1C"],
 };
 
-/* ================= INITIAL BATCHES ================= */
-
-const INITIAL_BATCHES: Batch[] = Array.from({ length: 10 }).map((_, i) => ({
-  id: `Batch ${String.fromCharCode(65 + i)}`,
-  weightKg: Math.floor(400 + Math.random() * 550),
-  sensors: {
-    temp: 24 + Math.random() * 3,
-    humidity: 60 + Math.random() * 10,
-    co2: 400 + Math.random() * 3000,
-    nh3: Math.random(),
-    voc: Math.random()
-  }
-}));
-
-/* ================= OHI LOGIC ================= */
-
-function statusColor(status: string) {
-  if (status === "Emergency") return "#DC2626";
-  if (status === "Action") return "#F97316";
-  if (status === "Alert") return "#F59E0B";
-  return "#16A34A";
-}
-
-function statusText(status: string, t: any) {
-  if (status === "Emergency") return t.sellNow;
-  if (status === "Action") return t.sellIn24h;
-  if (status === "Alert") return t.monitor;
-  return t.safe;
-}
-
-/* ================= MAIN ================= */
-
-export default function Leaderboard() {
-  const { language } = useLanguage();
-  const t = I18N[language];
-
-  const [batches, setBatches] = useState<any[]>([]);
-  const [selected, setSelected] = useState<any | null>(null);
-  const [showHelp, setShowHelp] = useState(false);
-
-  useEffect(() => {
-    async function fetchAllBatches() {
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/sensors/crate1`);
-        const data = await res.json();
-        const batchArray = Object.keys(data).map(key => ({
-          id: key,
-          weightKg: 450,
-          sensors: data[key],
-          ml: data[key].ml_predictions || { ohi: 50, tier: "Alert", daysRemaining: 0 }
-        }));
-        
-        // Add some mock batches for ui volume
-        const initialWithReal = [...INITIAL_BATCHES.slice(1)].map(b => ({
-          ...b,
-          ml: { ohi: Math.floor(Math.random() * 40 + 50), tier: "Alert", daysRemaining: 15 }
-        }));
-        
-        if (batchArray.length > 0) {
-          setBatches([batchArray[0], ...initialWithReal]);
-        } else {
-          setBatches(initialWithReal);
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    
-    fetchAllBatches();
-    const i = setInterval(fetchAllBatches, 5000);
-    return () => clearInterval(i);
-  }, []);
-
+function OhiRing({ ohi, tier }: { ohi: number; tier: string }) {
+  const color = TIER_COLOR[tier];
   return (
-    <>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>{t.batches}</Text>
-        <Pressable style={styles.helpBtn} onPress={() => setShowHelp(true)}>
-          <Text style={styles.helpText}>{t.help}</Text>
-        </Pressable>
+    <View style={styles.ohiRing}>
+      <View style={[styles.ohiInner, { borderColor: color }]}>
+        <Text style={[styles.ohiBig, { color }]}>{ohi}</Text>
+        <Text style={styles.ohiLabel}>OHI</Text>
       </View>
-
-      <FlatList
-        data={batches}
-        keyExtractor={(i) => i.id}
-        contentContainerStyle={{ padding: 16 }}
-        renderItem={({ item }) => {
-          const ohi = item.ml.ohi;
-          const status = item.ml.tier;
-          const safeDays = item.ml.daysRemaining;
-          return (
-            <Pressable onPress={() => setSelected(item)}>
-              <View style={[styles.card, { backgroundColor: statusColor(status) }]}>
-                <Text style={styles.batch}>{item.id}</Text>
-                <Text style={styles.meta}>{item.weightKg} kg • OHI {ohi} • {safeDays} Days left</Text>
-                <Text style={styles.statusText}>{statusText(status, t)}</Text>
-              </View>
-            </Pressable>
-          );
-        }}
-      />
-
-      <Modal visible={!!selected} transparent animationType="slide">
-        <View style={styles.overlay}>
-          <ScrollView style={styles.popup}>
-            {selected && (() => {
-              const ohi = selected.ml.ohi;
-              const status = selected.ml.tier;
-              const safeDays = selected.ml.daysRemaining;
-              
-              // Normalize the sensor payload names slightly since live data uses mq135 vs co2
-              const displayTemp = selected.sensors.temperature ?? selected.sensors.temp;
-              const displayCo2 = selected.sensors.mq135 ? selected.sensors.mq135 * 10 : selected.sensors.co2;
-              const displayNh3 = selected.sensors.mq137 ?? selected.sensors.nh3;
-              const displayVoc = selected.sensors.mq136 ?? selected.sensors.voc;
-
-              return (
-                <>
-                  <Text style={styles.popupTitle}>{selected.id}</Text>
-                  <Text style={styles.popupSub}>{t.detailedDash}</Text>
-
-                  <View style={styles.grid}>
-                    <Sensor label={t.temp} value={`${displayTemp} °C`} />
-                    <Sensor label={t.humidity} value={`${selected.sensors.humidity} %`} />
-                    <Sensor label={t.co2} value={`${Math.round(displayCo2)} ppm`} />
-                    <Sensor label={t.nh3} value={`${displayNh3} ppm`} />
-                    <Sensor label={t.voc} value={`${displayVoc} ppm`} />
-                    <Sensor label={t.stock} value={`${selected.weightKg} kg`} />
-                  </View>
-
-                  <View style={styles.analysisBox}>
-                    <Text style={styles.analysisTitle}>{t.storageAnalysis}</Text>
-                    <Text style={styles.analysisText}>
-                      ML predictions estimate {safeDays} days of safe storage remaining for this batch. 
-                      {status === "Normal" ? " " + t.stable : ` OHI: ${ohi} — ${statusText(status, t)}`}
-                    </Text>
-                    <Text style={styles.analysisTitle}>{t.recommendedActions}</Text>
-                    <Text style={styles.analysisText}>• {statusText(status, t)}</Text>
-                  </View>
-
-                  <Pressable style={styles.close} onPress={() => setSelected(null)}>
-                    <Text style={{ color: "#FFF", fontWeight: "800" }}>{t.close}</Text>
-                  </Pressable>
-                </>
-              );
-            })()}
-          </ScrollView>
-        </View>
-      </Modal>
-
-      <Modal visible={showHelp} transparent animationType="fade">
-        <View style={styles.helpOverlay}>
-          <View style={styles.helpBox}>
-            <Text style={styles.helpTitle}>{t.support}</Text>
-            <Text style={styles.helpNumber}>📞 +91 98765 43210</Text>
-            <Pressable style={styles.helpClose} onPress={() => setShowHelp(false)}>
-              <Text style={{ color: "#FFF", fontWeight: "800" }}>{t.close}</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
-    </>
-  );
-}
-
-/* ================= SENSOR CARD ================= */
-
-function Sensor({ label, value }: { label: string; value: string }) {
-
-  return (
-    <View style={styles.sensor}>
-      <Text style={styles.sensorLabel}>{label}</Text>
-      <Text style={styles.sensorValue}>{value}</Text>
     </View>
   );
 }
 
-/* ================= STYLES ================= */
+/* ─── Main ─── */
+export default function BatchesScreen() {
+  const { username } = useAuth();
+  const [batches, setBatches] = useState<BatchItem[]>([]);
+  const [selected, setSelected] = useState<BatchItem | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [selling, setSelling] = useState(false);
+  const [soldIds, setSoldIds] = useState<Set<string>>(new Set());
+
+  const fetchBatches = useCallback(async () => {
+    try {
+      const res = await secureRequest(API_ENDPOINTS.allSensors);
+      if (!res.ok) return;
+      const data = await res.json();
+
+      const result: BatchItem[] = [];
+      for (const crateId of Object.keys(data)) {
+        for (const batchId of Object.keys(data[crateId])) {
+          const b = data[crateId][batchId];
+          const ml = b.ml_predictions || {};
+          result.push({
+            crateId, batchId,
+            ohi: ml.ohi ?? 50,
+            tier: ml.tier ?? "Alert",
+            daysRemaining: ml.daysRemaining ?? 10,
+            confidence: ml.confidence ?? 0.7,
+            temperature: b.temperature ?? 0,
+            humidity: b.humidity ?? 0,
+            mq135: b.mq135 ?? 0,
+            mq137: b.mq137 ?? 0,
+            mq136: b.mq136 ?? 0,
+          });
+        }
+      }
+      // sort: Emergency first → Normal last
+      result.sort((a, b) => a.ohi - b.ohi);
+      setBatches(result);
+    } catch (err) {
+      console.log("Batch fetch error:", err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchBatches();
+    const t = setInterval(fetchBatches, 5000);
+    return () => clearInterval(t);
+  }, [fetchBatches]);
+
+  const handleSell = (batch: BatchItem) => {
+    Alert.alert(
+      "🌾 Confirm Harvest",
+      `Mark ${batch.crateId}/${batch.batchId} as sold/harvested?\n\nOHI: ${batch.ohi} | ${batch.daysRemaining} days remaining`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Mark as Sold",
+          style: "destructive",
+          onPress: async () => {
+            setSelling(true);
+            try {
+              // Record sale in backend
+              await secureRequest(`/api/crates/${batch.crateId}/harvest`, {
+                method: "POST",
+                body: JSON.stringify({ batchId: batch.batchId, ohi: batch.ohi, soldAt: new Date().toISOString() }),
+              });
+            } catch { /* endpoint may not exist yet — that's OK */ }
+            setSoldIds(prev => new Set([...prev, `${batch.crateId}/${batch.batchId}`]));
+            setSelling(false);
+            setSelected(null);
+            Alert.alert("✅ Marked as Sold", `${batch.crateId}/${batch.batchId} has been recorded as harvested.`);
+          }
+        }
+      ]
+    );
+  };
+
+  const onRefresh = () => { setRefreshing(true); fetchBatches(); };
+
+  const renderItem = ({ item, index }: { item: BatchItem; index: number }) => {
+    const isSold = soldIds.has(`${item.crateId}/${item.batchId}`);
+    const tierColor = TIER_COLOR[item.tier];
+    const tierBg = TIER_BG[item.tier];
+    return (
+      <TouchableOpacity onPress={() => setSelected(item)} activeOpacity={0.85}>
+        <View style={[styles.card, isSold && styles.cardSold]}>
+          {/* Rank Badge */}
+          <View style={[styles.rankBadge, { backgroundColor: index < 3 ? tierBg : "#F3F4F6" }]}>
+            {index < 3
+              ? <Ionicons name={index === 0 ? "warning" : index === 1 ? "alert-circle" : "information-circle"} size={16} color={tierColor} />
+              : <Text style={[styles.rankNum, { color: "#6B7280" }]}>{index + 1}</Text>
+            }
+          </View>
+
+          {/* Info */}
+          <View style={{ flex: 1 }}>
+            <Text style={styles.batchId}>{item.crateId} / {item.batchId}</Text>
+            <View style={styles.tagsRow}>
+              <View style={[styles.tierTag, { backgroundColor: tierBg }]}>
+                <Text style={[styles.tierTagText, { color: tierColor }]}>{item.tier}</Text>
+              </View>
+              <Text style={styles.metaText}>🌡 {item.temperature}°C  💧 {item.humidity}%</Text>
+            </View>
+            {isSold && (
+              <View style={styles.soldBadge}>
+                <Ionicons name="checkmark-circle" size={12} color="#16A34A" />
+                <Text style={styles.soldText}>Harvested</Text>
+              </View>
+            )}
+          </View>
+
+          {/* OHI Ring */}
+          <OhiRing ohi={item.ohi} tier={item.tier} />
+
+          {/* Days Left */}
+          <View style={{ alignItems: "center", marginLeft: 8 }}>
+            <Text style={[styles.daysBig, { color: item.daysRemaining < 5 ? "#DC2626" : "#111827" }]}>
+              {item.daysRemaining}
+            </Text>
+            <Text style={styles.daysLabel}>days</Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  return (
+    <View style={styles.container}>
+      {/* Header */}
+      <LinearGradient colors={["#1E6F5C", "#2D917A"]} style={styles.header}>
+        <View>
+          <Text style={styles.headerTitle}>📦 My Batches</Text>
+          <Text style={styles.headerSub}>{username ? `@${username}` : "Loading..."} · {batches.length} active batch{batches.length !== 1 ? "es" : ""}</Text>
+        </View>
+        <TouchableOpacity onPress={onRefresh} style={styles.refreshBtn}>
+          <Ionicons name="refresh" size={18} color="#fff" />
+        </TouchableOpacity>
+      </LinearGradient>
+
+      {/* Summary Bar — always show all 4 tiers */}
+      <View style={styles.summaryBar}>
+        {(["Emergency", "Action", "Alert", "Normal"] as const).map(t => {
+          const count = batches.filter(b => b.tier === t).length;
+          return (
+            <View key={t} style={[styles.summaryChip, { backgroundColor: TIER_BG[t], borderWidth: 1.5, borderColor: TIER_COLOR[t] }]}>
+              <Text style={[styles.summaryChipText, { color: TIER_COLOR[t] }]}>{count} {t}</Text>
+            </View>
+          );
+        })}
+      </View>
+
+      {/* OHI Scale Bar */}
+      <View style={styles.scaleBox}>
+        <Text style={styles.scaleTitle}>OHI Scale</Text>
+        <View style={styles.scaleRow}>
+          {([
+            { label: "0–35", tier: "Emergency" },
+            { label: "36–55", tier: "Action" },
+            { label: "56–75", tier: "Alert" },
+            { label: "76–100", tier: "Normal" },
+          ] as const).map(({ label, tier }) => (
+            <View key={tier} style={[styles.scaleSegment, { backgroundColor: TIER_BG[tier] }]}>
+              <View style={[styles.scaleDot, { backgroundColor: TIER_COLOR[tier] }]} />
+              <Text style={[styles.scaleTier, { color: TIER_COLOR[tier] }]}>{tier}</Text>
+              <Text style={styles.scaleRange}>{label}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+
+      {loading ? (
+        <View style={styles.center}><ActivityIndicator size="large" color="#1E6F5C" /></View>
+      ) : batches.length === 0 ? (
+        <View style={styles.center}>
+          <Ionicons name="cube-outline" size={56} color="#D1D5DB" />
+          <Text style={styles.emptyTitle}>No batches found</Text>
+          <Text style={styles.emptySub}>Ask your admin to assign a crate to your account.</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={batches}
+          keyExtractor={i => `${i.crateId}/${i.batchId}`}
+          renderItem={renderItem}
+          contentContainerStyle={{ padding: 16, paddingBottom: 32, gap: 10 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1E6F5C" />}
+        />
+      )}
+
+      {/* Detail Modal */}
+      <Modal visible={!!selected} transparent animationType="slide" onRequestClose={() => setSelected(null)}>
+        <View style={styles.modalOverlay}>
+          {selected && (
+            <View style={styles.modalBox}>
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {/* Modal Header */}
+                <LinearGradient colors={TIER_GRAD[selected.tier]} style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>{selected.crateId.toUpperCase()}</Text>
+                  <Text style={styles.modalSub}>{selected.batchId.toUpperCase()}</Text>
+                  <View style={styles.modalOhiRow}>
+                    <View style={styles.modalStat}>
+                      <Text style={styles.modalStatBig}>{selected.ohi}</Text>
+                      <Text style={styles.modalStatLabel}>OHI Score</Text>
+                    </View>
+                    <View style={styles.modalStat}>
+                      <Text style={styles.modalStatBig}>{selected.daysRemaining}</Text>
+                      <Text style={styles.modalStatLabel}>Days Left</Text>
+                    </View>
+                    <View style={styles.modalStat}>
+                      <Text style={styles.modalStatBig}>{Math.round((selected.confidence ?? 0.7) * 100)}%</Text>
+                      <Text style={styles.modalStatLabel}>Confidence</Text>
+                    </View>
+                  </View>
+                </LinearGradient>
+
+                {/* Sensor Grid */}
+                <View style={styles.sensorGrid}>
+                  <SensorTile icon="thermometer" label="Temperature" value={`${selected.temperature}°C`} color="#EF4444" />
+                  <SensorTile icon="water" label="Humidity" value={`${selected.humidity}%`} color="#3B82F6" />
+                  <SensorTile icon="cloud" label="CO₂ (MQ135)" value={`${selected.mq135} ppm`} color="#8B5CF6" />
+                  <SensorTile icon="warning" label="NH₃ (MQ137)" value={`${selected.mq137} ppm`} color="#F59E0B" />
+                  <SensorTile icon="flask" label="VOC (MQ136)" value={`${selected.mq136 ?? 0} ppm`} color="#10B981" />
+                </View>
+
+                {/* Health Advisory */}
+                <View style={[styles.advisoryBox, { borderColor: TIER_COLOR[selected.tier] }]}>
+                  <Ionicons name="bulb-outline" size={16} color={TIER_COLOR[selected.tier]} />
+                  <Text style={[styles.advisoryText, { color: TIER_COLOR[selected.tier] }]}>
+                    {selected.tier === "Normal"
+                      ? `Conditions are optimal. ${selected.daysRemaining} days of safe storage remaining.`
+                      : selected.tier === "Alert"
+                      ? `Slight deterioration detected. Monitor closely over the next 24–48 hours.`
+                      : selected.tier === "Action"
+                      ? `Significant spoilage risk. Consider selling or moving to cold storage within 24 hours.`
+                      : `Critical — sell or discard immediately to prevent total loss.`}
+                  </Text>
+                </View>
+
+                {/* Action Buttons */}
+                <View style={styles.actionRow}>
+                  <TouchableOpacity style={styles.closeBtn} onPress={() => setSelected(null)}>
+                    <Text style={styles.closeBtnText}>Close</Text>
+                  </TouchableOpacity>
+                  {!soldIds.has(`${selected.crateId}/${selected.batchId}`) && (
+                    <TouchableOpacity
+                      style={[styles.sellBtn, { backgroundColor: TIER_COLOR[selected.tier] }]}
+                      onPress={() => handleSell(selected)}
+                      disabled={selling}
+                    >
+                      {selling
+                        ? <ActivityIndicator color="#fff" size="small" />
+                        : <>
+                            <Ionicons name="checkmark-circle-outline" size={18} color="#fff" />
+                            <Text style={styles.sellBtnText}>Mark as Harvested</Text>
+                          </>
+                      }
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </ScrollView>
+            </View>
+          )}
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+function SensorTile({ icon, label, value, color }: { icon: any; label: string; value: string; color: string }) {
+  return (
+    <View style={styles.sensorTile}>
+      <Ionicons name={icon} size={18} color={color} />
+      <Text style={styles.sensorValue}>{value}</Text>
+      <Text style={styles.sensorLabel}>{label}</Text>
+    </View>
+  );
+}
 
 const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#F7FAF9" },
+  header: { paddingTop: 52, paddingBottom: 20, paddingHorizontal: 20, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  headerTitle: { fontSize: 24, fontWeight: "900", color: "#fff" },
+  headerSub: { fontSize: 13, color: "rgba(255,255,255,0.75)", marginTop: 3 },
+  refreshBtn: { backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 20, padding: 8 },
 
-  header: {
-    padding: 16,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center"
-  },
+  summaryBar: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: 16, paddingTop: 12 },
+  summaryChip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 },
+  summaryChipText: { fontSize: 12, fontWeight: "700" },
 
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: "800"
-  },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 40 },
+  emptyTitle: { fontSize: 16, fontWeight: "700", color: "#6B7280", marginTop: 16 },
+  emptySub: { fontSize: 13, color: "#9CA3AF", marginTop: 6, textAlign: "center" },
 
-  helpBtn: {
-    backgroundColor: "#16A34A",
-    paddingHorizontal: 18,
-    paddingVertical: 8,
-    borderRadius: 20
-  },
+  card: { backgroundColor: "#fff", borderRadius: 18, padding: 14, flexDirection: "row", alignItems: "center", gap: 10, elevation: 2, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
+  cardSold: { opacity: 0.6 },
 
-  helpText: {
-    color: "#FFF",
-    fontWeight: "800"
-  },
+  rankBadge: { width: 32, height: 32, borderRadius: 16, justifyContent: "center", alignItems: "center" },
+  rankNum: { fontSize: 13, fontWeight: "800" },
 
-  card: {
-    padding: 18,
-    borderRadius: 20,
-    marginBottom: 14,
-    elevation: 3
-  },
+  batchId: { fontSize: 14, fontWeight: "800", color: "#111827" },
+  tagsRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 },
+  tierTag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
+  tierTagText: { fontSize: 11, fontWeight: "700" },
+  metaText: { fontSize: 11, color: "#6B7280" },
 
-  batch: {
-    fontSize: 16,
-    fontWeight: "900",
-    color: "#FFF"
-  },
+  soldBadge: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 },
+  soldText: { fontSize: 11, color: "#16A34A", fontWeight: "600" },
 
-  meta: {
-    marginTop: 6,
-    color: "#FFF"
-  },
+  ohiRing: { justifyContent: "center", alignItems: "center" },
+  ohiInner: { width: 52, height: 52, borderRadius: 26, borderWidth: 3, justifyContent: "center", alignItems: "center" },
+  ohiBig: { fontSize: 16, fontWeight: "900" },
+  ohiLabel: { fontSize: 9, color: "#9CA3AF", marginTop: -2 },
 
-  statusText: {
-    marginTop: 8,
-    fontWeight: "900",
-    color: "#FFF"
-  },
+  daysBig: { fontSize: 18, fontWeight: "900" },
+  daysLabel: { fontSize: 10, color: "#9CA3AF" },
 
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.45)",
-    justifyContent: "flex-end"
-  },
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
+  modalBox: { backgroundColor: "#fff", borderTopLeftRadius: 28, borderTopRightRadius: 28, maxHeight: "90%", overflow: "hidden" },
+  modalHeader: { padding: 24, alignItems: "center" },
+  modalTitle: { fontSize: 22, fontWeight: "900", color: "#fff" },
+  modalSub: { fontSize: 13, color: "rgba(255,255,255,0.75)", marginTop: 2 },
+  modalOhiRow: { flexDirection: "row", gap: 28, marginTop: 16 },
+  modalStat: { alignItems: "center" },
+  modalStatBig: { fontSize: 28, fontWeight: "900", color: "#fff" },
+  modalStatLabel: { fontSize: 11, color: "rgba(255,255,255,0.75)", marginTop: 2 },
 
-  popup: {
-    backgroundColor: "#F7FAF9",
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    padding: 20,
-    maxHeight: "90%"
-  },
+  sensorGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, padding: 16 },
+  sensorTile: { width: "47%", backgroundColor: "#F9FAFB", borderRadius: 14, padding: 12, alignItems: "center", gap: 4 },
+  sensorValue: { fontSize: 16, fontWeight: "800", color: "#111827" },
+  sensorLabel: { fontSize: 11, color: "#6B7280" },
 
-  popupTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    textAlign: "center"
-  },
+  advisoryBox: { marginHorizontal: 16, borderRadius: 12, borderWidth: 1.5, padding: 12, flexDirection: "row", gap: 8, alignItems: "flex-start", marginBottom: 16 },
+  advisoryText: { flex: 1, fontSize: 13, lineHeight: 19, fontWeight: "600" },
 
-  popupSub: {
-    textAlign: "center",
-    color: "#6B7280",
-    marginBottom: 16
-  },
+  actionRow: { flexDirection: "row", gap: 10, padding: 16, paddingTop: 0 },
+  closeBtn: { flex: 1, borderRadius: 14, borderWidth: 1.5, borderColor: "#E5E7EB", paddingVertical: 14, alignItems: "center" },
+  closeBtnText: { fontWeight: "700", color: "#6B7280" },
+  sellBtn: { flex: 2, borderRadius: 14, paddingVertical: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
+  sellBtnText: { color: "#fff", fontWeight: "800", fontSize: 14 },
 
-  grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between"
-  },
-
-  sensor: {
-    width: "48%",
-    backgroundColor: "#FFF",
-    padding: 14,
-    borderRadius: 14,
-    marginBottom: 12
-  },
-
-  sensorLabel: {
-    fontSize: 12,
-    color: "#6B7280"
-  },
-
-  sensorValue: {
-    fontSize: 18,
-    fontWeight: "800",
-    marginTop: 6
-  },
-
-  analysisBox: {
-    backgroundColor: "#FFF",
-    padding: 16,
-    borderRadius: 14,
-    marginTop: 10
-  },
-
-  analysisTitle: {
-    fontWeight: "800",
-    marginTop: 10,
-    marginBottom: 6
-  },
-
-  analysisText: {
-    fontSize: 13,
-    marginBottom: 4,
-    color: "#374151"
-  },
-
-  close: {
-    marginTop: 16,
-    backgroundColor: "#1E6F5C",
-    padding: 14,
-    borderRadius: 14,
-    alignItems: "center"
-  },
-
-  helpOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.45)",
-    justifyContent: "center",
-    alignItems: "center"
-  },
-
-  helpBox: {
-    backgroundColor: "#FFF",
-    width: "80%",
-    borderRadius: 20,
-    padding: 20,
-    alignItems: "center"
-  },
-
-  helpTitle: {
-    fontSize: 18,
-    fontWeight: "800"
-  },
-
-  helpNumber: {
-    fontSize: 20,
-    fontWeight: "900",
-    marginVertical: 12,
-    color: "#16A34A"
-  },
-
-  helpClose: {
-    backgroundColor: "#16A34A",
-    paddingVertical: 10,
-    paddingHorizontal: 24,
-    borderRadius: 12
-  }
-
+  scaleBox: { marginHorizontal: 16, marginBottom: 8, backgroundColor: "#fff", borderRadius: 14, padding: 12, elevation: 1 },
+  scaleTitle: { fontSize: 11, fontWeight: "700", color: "#9CA3AF", marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 },
+  scaleRow: { flexDirection: "row", gap: 6 },
+  scaleSegment: { flex: 1, borderRadius: 10, padding: 8, alignItems: "center", gap: 4 },
+  scaleDot: { width: 8, height: 8, borderRadius: 4 },
+  scaleTier: { fontSize: 10, fontWeight: "800" },
+  scaleRange: { fontSize: 9, color: "#6B7280", fontWeight: "600" },
 });

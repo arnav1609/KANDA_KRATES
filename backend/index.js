@@ -5,6 +5,7 @@ import mongoose from "mongoose";
 import mqtt from "mqtt";
 import chatRoute from "./routes/chat.js";
 import Farmer from "./models/Farmer.js";
+import Admin from "./models/Admin.js";
 import Crate from "./models/Crate.js";
 import { updateSensorState } from "./data/systemState.js";
 import { runAgenticMonitor } from "./agent.js";
@@ -44,18 +45,21 @@ app.use("/api/chat", chatRoute);
 const MQTT_BROKER = "mqtt://broker.hivemq.com";
 const client = mqtt.connect(MQTT_BROKER);
 
-/* Store sensor data per batch */
+/* Store sensor data per batch — pre-seeded with demo data for presentations */
 
 let sensorStore = {
-  "crate1": {
-    "batch1": {
-      temperature: 28.5,
-      humidity: 62,
-      mq135: 145,
-      mq137: 3.2,
-      mq136: 12,
-      timestamp: Date.now()
-    }
+  "crate1": { // 🟢 Normal: OHI 90+, Tier: Normal
+    "batch1": { temperature: 22.4, humidity: 62.1, mq135: 105, mq137: 0.1, mq136: 0.2, timestamp: Date.now() },
+    "batch2": { temperature: 23.8, humidity: 64.5, mq135: 140, mq137: 0.2, mq136: 0.3, timestamp: Date.now() }
+  },
+  "crate2": { // 🟠 Action: OHI 45, Tier: Action
+    "batch1": { temperature: 34.2, humidity: 82.5, mq135: 580, mq137: 3.2, mq136: 2.8, timestamp: Date.now() }
+  },
+  "crate3": { // 🔴 Emergency: OHI 25, Tier: Emergency
+    "batch1": { temperature: 41.5, humidity: 92.8, mq135: 1100, mq137: 12.5, mq136: 8.5, timestamp: Date.now() }
+  },
+  "crate4": { // 🟡 Alert: OHI 65, Tier: Alert
+    "batch1": { temperature: 29.3, humidity: 74.5, mq135: 380, mq137: 1.5, mq136: 1.2, timestamp: Date.now() }
   }
 };
 
@@ -374,7 +378,7 @@ async function attachMLPredictions(sensorData) {
       ...sensorData,
       ml_predictions: {
         ohi: 50,
-        tier: "Alert",
+        tier: "Action", // Updated from Alert to Action for OHI 50
         daysRemaining: 15,
         confidence: 0
       }
@@ -420,6 +424,66 @@ app.get("/api/sensors/:crate/:batch", async (req, res) => {
   res.json(enhancedData);
 });
 
+
+/* ================= AUTH: FARMER ================= */
+
+// Register a new Farmer
+app.post("/api/farmer/register", async (req, res) => {
+  try {
+    const { username, phoneNumber, password } = req.body;
+    if (!username || !phoneNumber || !password)
+      return res.status(400).json({ error: "Username, phone, and password are required." });
+
+    const existing = await Farmer.findOne({ username });
+    if (existing) return res.status(409).json({ error: "Username already taken." });
+
+    await Farmer.create({ username, phoneNumber, password });
+    res.status(201).json({ message: "Farmer registered successfully!" });
+  } catch (error) {
+    res.status(500).json({ error: "Registration failed." });
+  }
+});
+
+// Login as Farmer
+app.post("/api/farmer", async (req, res) => {
+  try {
+    const { username, phoneNumber, password, role } = req.body;
+
+    if (role === "admin") {
+      // Admin login path
+      const admin = await Admin.findOne({ username, password });
+      if (!admin) return res.status(401).json({ error: "Invalid admin credentials." });
+      return res.json({ token: `admin_${admin._id}`, role: "admin", username: admin.username });
+    }
+
+    // Farmer login path
+    const farmer = await Farmer.findOne({ username, password });
+    if (!farmer) return res.status(401).json({ error: "Invalid credentials." });
+    res.json({ token: `farmer_${farmer._id}`, role: "farmer", username: farmer.username });
+  } catch (error) {
+    res.status(500).json({ error: "Login failed." });
+  }
+});
+
+/* ================= AUTH: ADMIN ================= */
+
+// Register a new Admin
+app.post("/api/admin/register", async (req, res) => {
+  try {
+    const { username, phoneNumber, password } = req.body;
+    if (!username || !phoneNumber || !password)
+      return res.status(400).json({ error: "All fields are required." });
+
+    const existing = await Admin.findOne({ username });
+    if (existing) return res.status(409).json({ error: "Admin username already taken." });
+
+    await Admin.create({ username, phoneNumber, password });
+    res.status(201).json({ message: "Admin registered successfully!" });
+  } catch (error) {
+    res.status(500).json({ error: "Admin registration failed." });
+  }
+});
+
 /* -------- SERVER START & AGENTIC AI LOOP -------- */
 
 const PORT = 5000;
@@ -429,10 +493,13 @@ app.listen(PORT, "0.0.0.0", () => {
   console.log(`🤖 Agentic Monitor running every 60 seconds...`);
 
   // 1. Start the background Agentic AI Monitor loop (runs every 1 minute)
-  setInterval(() => {
-    runAgenticMonitor(sensorStore, client, Farmer)
-      .catch(console.error);
-  }, 60 * 1000);
+  // We use a small timeout to allow the ML service (port 5001) to boot up first
+  setTimeout(() => {
+    setInterval(() => {
+      runAgenticMonitor(sensorStore, client, Farmer)
+        .catch(console.error);
+    }, 60 * 1000);
+  }, 10000);
 
   // 2. Start the Historical Snapshot loop (runs every hour to record data for charts)
   // For demo purposes, we will take a snapshot every 15 minutes instead
@@ -559,6 +626,143 @@ app.post("/api/crates", async (req, res) => {
     res.status(201).json(newCrate);
   } catch (error) {
     res.status(500).json({ error: "Failed to create crate" });
+  }
+});
+
+// Delete a crate by crateId
+app.delete("/api/crates/:crateId", async (req, res) => {
+  try {
+    const { crateId } = req.params;
+    const deleted = await Crate.findOneAndDelete({ crateId });
+    if (!deleted) return res.status(404).json({ error: "Crate not found" });
+    res.json({ message: `Crate ${crateId} deleted successfully` });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to delete crate" });
+  }
+});
+
+// Reassign a crate to a different farmer
+app.put("/api/crates/:crateId/reassign", async (req, res) => {
+  try {
+    const { crateId } = req.params;
+    const { assignedFarmerUsername } = req.body;
+
+    const farmer = await Farmer.findOne({ username: assignedFarmerUsername });
+    if (!farmer) return res.status(404).json({ error: "Farmer not found" });
+
+    const crate = await Crate.findOneAndUpdate(
+      { crateId },
+      { assignedFarmerUsername },
+      { new: true }
+    );
+    if (!crate) return res.status(404).json({ error: "Crate not found" });
+    res.json(crate);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to reassign crate" });
+  }
+});
+
+/* ================= FARMER MANAGEMENT (ADMIN) ================= */
+
+// Update a farmer's phone number or password
+app.put("/api/farmers/:username", async (req, res) => {
+  try {
+    const { username } = req.params;
+    const { phoneNumber } = req.body;
+
+    const farmer = await Farmer.findOneAndUpdate(
+      { username },
+      { phoneNumber },
+      { new: true }
+    );
+    if (!farmer) return res.status(404).json({ error: "Farmer not found" });
+    res.json({ message: "Farmer updated", farmer });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to update farmer" });
+  }
+});
+
+// Delete a farmer account
+app.delete("/api/farmers/:username", async (req, res) => {
+  try {
+    const { username } = req.params;
+    const deleted = await Farmer.findOneAndDelete({ username });
+    if (!deleted) return res.status(404).json({ error: "Farmer not found" });
+    // Optionally unassign their crates
+    await Crate.updateMany({ assignedFarmerUsername: username }, { assignedFarmerUsername: "" });
+    res.json({ message: `Farmer ${username} deleted. Crates unassigned.` });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to delete farmer" });
+  }
+});
+
+/* ================= FLEET ANALYTICS ================= */
+
+// Get aggregated fleet health snapshot (admin analytics)
+app.get("/api/analytics/fleet", async (req, res) => {
+  try {
+    const crates = Object.keys(sensorStore);
+    let fleetResults = [];
+
+    for (const crateId of crates) {
+      const batches = Object.keys(sensorStore[crateId]).filter(b => b !== "fan" && b !== "actuator");
+      for (const batchId of batches) {
+        const data = sensorStore[crateId][batchId];
+        try {
+          const mlRes = await axios.post("http://127.0.0.1:5001/predict", {
+            temperature: data.temperature,
+            humidity: data.humidity,
+            co2: data.mq135 * 10,
+            nh3: data.mq137,
+            voc: data.mq136 || 0.1
+          }, { timeout: 2000 }); // Fast timeout — fall through to heuristic if ML offline
+          fleetResults.push({ crateId, batchId, ...mlRes.data, temperature: data.temperature, humidity: data.humidity });
+        } catch {
+          // ML service offline — compute heuristic OHI from raw sensor readings
+          const tempScore  = Math.max(0, 100 - Math.max(0, data.temperature - 25) * 4);
+          const humScore   = Math.max(0, 100 - Math.max(0, data.humidity - 65) * 3);
+          const gasScore   = Math.max(0, 100 - (data.mq137 * 8) - (data.mq135 * 0.05));
+          const ohi        = Math.round(Math.min(100, Math.max(0, (tempScore + humScore + gasScore) / 3)));
+          
+          // Updated boundaries: Normal (76+), Alert (56-75), Action (36-55), Emergency (<36)
+          let tier = "Normal";
+          if (ohi < 36) tier = "Emergency";
+          else if (ohi < 56) tier = "Action";
+          else if (ohi < 76) tier = "Alert";
+
+          const daysRemaining = Math.round(ohi / 2.5);
+          fleetResults.push({ crateId, batchId, ohi, tier, daysRemaining, confidence: 0.7, temperature: data.temperature, humidity: data.humidity });
+        }
+      }
+    }
+
+    // ── Demo data fallback (for presentations when no live hardware is connected) ──
+    if (fleetResults.length === 0) {
+      fleetResults = [
+        { crateId: "crate1", batchId: "batch1", ohi: 88, tier: "Normal",    daysRemaining: 42, confidence: 0.96, temperature: 25.4, humidity: 63 },
+        { crateId: "crate1", batchId: "batch2", ohi: 74, tier: "Alert",     daysRemaining: 18, confidence: 0.91, temperature: 28.1, humidity: 71 },
+        { crateId: "crate2", batchId: "batch1", ohi: 52, tier: "Action",    daysRemaining: 7,  confidence: 0.88, temperature: 33.2, humidity: 79 },
+        { crateId: "crate2", batchId: "batch2", ohi: 91, tier: "Normal",    daysRemaining: 55, confidence: 0.97, temperature: 24.8, humidity: 61 },
+        { crateId: "crate3", batchId: "batch1", ohi: 29, tier: "Emergency", daysRemaining: 2,  confidence: 0.94, temperature: 39.5, humidity: 88 },
+        { crateId: "crate3", batchId: "batch2", ohi: 67, tier: "Alert",     daysRemaining: 14, confidence: 0.89, temperature: 30.0, humidity: 74 },
+        { crateId: "crate4", batchId: "batch1", ohi: 83, tier: "Normal",    daysRemaining: 37, confidence: 0.95, temperature: 26.3, humidity: 65 },
+      ];
+    }
+
+    const avgOhi = Math.round(fleetResults.reduce((sum, r) => sum + r.ohi, 0) / fleetResults.length);
+    const tierCounts = { Normal: 0, Alert: 0, Action: 0, Emergency: 0 };
+    for (const r of fleetResults) tierCounts[r.tier] = (tierCounts[r.tier] || 0) + 1;
+
+    res.json({
+      totalCrates: Math.max(crates.length, [...new Set(fleetResults.map(r => r.crateId))].length),
+      totalBatches: fleetResults.length,
+      avgOhi,
+      tierCounts,
+      cratesSummary: fleetResults,
+      generatedAt: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to generate fleet analytics" });
   }
 });
 

@@ -1,417 +1,339 @@
+import React, { useEffect, useState, useCallback } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  SafeAreaView,
-  Dimensions,
-  ScrollView,
-  Modal,
-  FlatList
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  RefreshControl, ActivityIndicator
 } from "react-native";
-import { useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useState } from "react";
-import { useLanguage, SUPPORTED_LANGUAGES, LANGUAGE_LABELS, LanguageCode } from "../../context/LanguageContext";
+import { useRouter } from "expo-router";
+import { useAuth } from "../../context/AuthContext";
+import { secureRequest, API_ENDPOINTS } from "../../config/api";
+import { useLanguage } from "../../context/LanguageContext";
 
-const { width, height } = Dimensions.get("window");
+type BatchSummary = { crateId: string; batchId: string; ohi: number; tier: string; daysRemaining: number; };
+type MarketPrice = { priceModal: number; priceMin: number; priceMax: number; unit: string; market: string; lastUpdated: string; } | null;
 
-/* ================= TRANSLATIONS ================= */
-
-const T: Record<LanguageCode, any> = {
-  en: {
-    badge: "🌱 Smart Farming AI",
-    title: "Kanda Krates",
-    tagline: "Monitor. Protect. Profit.",
-    howHelp: "How we help you",
-    features: ["Live Tracking", "Anti-Spoil", "SMS Alerts", "Expert Help"],
-    button: "Get Started Now",
-    selectLang: "Select Language"
-  },
-  hi: {
-    badge: "🌱 स्मार्ट खेती AI",
-    title: "कांदा क्रेट्स",
-    tagline: "निगरानी. सुरक्षा. लाभ.",
-    howHelp: "हम कैसे मदद करते हैं",
-    features: ["लाइव निगरानी", "नास रोकथाम", "SMS अलर्ट", "विशेषज्ञ मदद"],
-    button: "शुरू करें",
-    selectLang: "भाषा चुनें"
-  },
-  mr: {
-    badge: "🌱 स्मार्ट शेती AI",
-    title: "कांदा क्रेट्स",
-    tagline: "निगराणी. संरक्षण. नफा.",
-    howHelp: "आम्ही कशी मदत करतो",
-    features: ["थेट निरीक्षण", "नासाडी प्रतिबंध", "SMS सूचना", "तज्ज्ञ मदत"],
-    button: "सुरू करा",
-    selectLang: "भाषा निवडा"
-  },
-  ta: {
-    badge: "🌱 ஸ்மார்ட் விவசாய AI",
-    title: "கண்டா கிரேட்ஸ்",
-    tagline: "கண்காணிப்பு. பாதுகாப்பு. லாபம்.",
-    howHelp: "நாங்கள் எப்படி உதவுகிறோம்",
-    features: ["நேரடி கண்காணிப்பு", "அழுகல் தடுப்பு", "SMS அறிவிப்பு", "நிபுணர் உதவி"],
-    button: "தொடங்குங்கள்",
-    selectLang: "மொழியைத் தேர்ந்தெடுக்கவும்"
-  },
-  te: {
-    badge: "🌱 స్మార్ట్ వ్యవసాయ AI",
-    title: "కందా క్రేట్స్",
-    tagline: "పర్యవేక్షణ. రక్షణ. లాభం.",
-    howHelp: "మేము ఎలా సహాయం చేస్తాము",
-    features: ["ప్రత్యక్ష ట్రాకింగ్", "పాడవకుండా నివారణ", "SMS హెచ్చరికలు", "నిపుణుల సహాయం"],
-    button: "ప్రారంభించండి",
-    selectLang: "భాషను ఎంచుకోండి"
-  },
-  kn: {
-    badge: "🌱 ಸ್ಮಾರ್ಟ್ ಕೃಷಿ AI",
-    title: "ಕಂದಾ ಕ್ರೇಟ್ಸ್",
-    tagline: "ಮೇಲ್ವಿಚಾರಣೆ. ರಕ್ಷಣೆ. ಲಾಭ.",
-    howHelp: "ನಾವು ಹೇಗೆ ಸಹಾಯ ಮಾಡುತ್ತೇವೆ",
-    features: ["ನೇರ ಟ್ರ್ಯಾಕಿಂಗ್", "ಹಾಳಾಗದಂತೆ ತಡೆಗಟ್ಟುವಿಕೆ", "SMS ಎಚ್ಚರಿಕೆಗಳು", "ತಜ್ಞರ ಸಹಾಯ"],
-    button: "ಪ್ರಾರಂಭಿಸಿ",
-    selectLang: "ಭಾಷೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ"
-  },
-  ml: {
-    badge: "🌱 സ്മാർട്ട് കൃഷി AI",
-    title: "കണ്ട ക്രേറ്റ്സ്",
-    tagline: "നിരീക്ഷണം. സംരക്ഷണം. ലാഭം.",
-    howHelp: "ഞങ്ങൾ എങ്ങനെ സഹായിക്കുന്നു",
-    features: ["തത്സമയ ട്രാക്കിംഗ്", "കേടാകുന്നത് തടയൽ", "SMS മുന്നറിയിപ്പുകൾ", "വിദഗ്ദ്ധ സഹായം"],
-    button: "തുടങ്ങുക",
-    selectLang: "ഭാഷ തിരഞ്ഞെടുക്കുക"
-  },
-  gu: {
-    badge: "🌱 સ્માર્ટ ખેતી AI",
-    title: "કાંદા ક્રેટ્સ",
-    tagline: "દેખરેખ. રક્ષણ. નફો.",
-    howHelp: "અમે કેવી રીતે મદદ કરીએ છીએ",
-    features: ["લાઇવ ટ્રેકિંગ", "બગાડ અટકાવ", "SMS ચેતવણીઓ", "નિષ્ણાતની મદદ"],
-    button: "શરૂ કરો",
-    selectLang: "ભાષા પસંદ કરો"
-  },
-  pa: {
-    badge: "🌱 ਸਮਾਰਟ ਖੇਤੀ AI",
-    title: "ਕਾਂਡਾ ਕਰੇਟਸ",
-    tagline: "ਨਿਗਰਾਨੀ. ਸੁਰੱਖਿਆ. ਮੁਨਾਫ਼ਾ.",
-    howHelp: "ਅਸੀਂ ਕਿਵੇਂ ਮਦਦ ਕਰਦੇ ਹਾਂ",
-    features: ["ਲਾਈਵ ਟਰੈਕਿੰਗ", "ਖਰਾਬ ਹੋਣ ਤੋਂ ਬਚਾਅ", "SMS ਅਲਰਟ", "ਮਾਹਰ ਦੀ ਮਦਦ"],
-    button: "ਸ਼ੁਰੂ ਕਰੋ",
-    selectLang: "ਭਾਸ਼ਾ ਚੁਣੋ"
-  },
-  bn: {
-    badge: "🌱 স্মার্ট কৃষি AI",
-    title: "কান্দা ক্রেটস",
-    tagline: "নজরদারি. সুরক্ষা. লাভ.",
-    howHelp: "আমরা কীভাবে সাহায্য করি",
-    features: ["সরাসরি ট্র্যাকিং", "পচন রোধ", "SMS সতর্কতা", "বিশেষজ্ঞের সাহায্য"],
-    button: "শুরু করুন",
-    selectLang: "ভাষা নির্বাচন করুন"
-  },
-  or: {
-    badge: "🌱 ସ୍ମାର୍ଟ କୃଷି AI",
-    title: "କାନ୍ଦା କ୍ରେଟସ୍",
-    tagline: "ତଦାରଖ. ସୁରକ୍ଷା. ଲାଭ.",
-    howHelp: "ଆମେ କିପରି ସାହାଯ୍ୟ କରୁ",
-    features: ["ଲାଇଭ୍ ଟ୍ରାକିଂ", "ନଷ୍ଟ ନିବାରଣ", "SMS ସତର୍କତା", "ବିଶେଷଜ୍ଞ ସାହାଯ୍ୟ"],
-    button: "ଆରମ୍ଭ କରନ୍ତୁ",
-    selectLang: "ଭାଷା ବାଛନ୍ତୁ"
-  }
+const TIER_COLOR: Record<string, string> = {
+  Normal: "#16A34A", Alert: "#D97706", Action: "#EA580C", Emergency: "#DC2626"
+};
+const TIER_BG: Record<string, string> = {
+  Normal: "#DCFCE7", Alert: "#FEF3C7", Action: "#FFEDD5", Emergency: "#FEE2E2"
 };
 
-/* ================= COMPONENT ================= */
+function greeting() {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  return "Good evening";
+}
 
-export default function Landing() {
+export default function FarmerHome() {
+  const { username } = useAuth();
+  const { language } = useLanguage();
   const router = useRouter();
-  const { language, setLanguage } = useLanguage();
-  const [langModalVisible, setLangModalVisible] = useState(false);
-  
-  const t = T[language];
 
-  const Feature = ({ icon, textIndex }: { icon: any; textIndex: number }) => (
-    <View style={styles.featureItem}>
-      <LinearGradient
-        colors={["#FFFFFF", "#F0F9F6"]}
-        style={styles.featureGradient}
-      >
-        <View style={styles.iconCircle}>
-          <Ionicons name={icon} size={24} color="#1E6F5C" />
-        </View>
-        <Text style={styles.featureText}>{t.features[textIndex]}</Text>
-      </LinearGradient>
-    </View>
+  const [batches, setBatches] = useState<BatchSummary[]>([]);
+  const [market, setMarket] = useState<MarketPrice>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchData = useCallback(async () => {
+    try {
+      const [sensorRes, marketRes] = await Promise.allSettled([
+        secureRequest(API_ENDPOINTS.allSensors),
+        secureRequest(API_ENDPOINTS.marketPrice),
+      ]);
+
+      // Sensor data
+      if (sensorRes.status === "fulfilled" && sensorRes.value.ok) {
+        const data = await sensorRes.value.json();
+        const result: BatchSummary[] = [];
+        for (const crateId of Object.keys(data)) {
+          for (const batchId of Object.keys(data[crateId])) {
+            const ml = data[crateId][batchId]?.ml_predictions || {};
+            result.push({ crateId, batchId, ohi: ml.ohi ?? 50, tier: ml.tier ?? "Alert", daysRemaining: ml.daysRemaining ?? 10 });
+          }
+        }
+        result.sort((a, b) => a.ohi - b.ohi);
+        setBatches(result);
+      }
+
+      // Market price
+      if (marketRes.status === "fulfilled" && marketRes.value.ok) {
+        const mp = await marketRes.value.json();
+        setMarket(mp);
+      }
+    } catch {}
+    finally { setLoading(false); setRefreshing(false); }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const worstBatch = batches[0];
+  const avgOhi = batches.length ? Math.round(batches.reduce((s, b) => s + b.ohi, 0) / batches.length) : 0;
+  
+  // Detailed matching counts
+  const countE = batches.filter(b => b.tier === "Emergency").length;
+  const countA = batches.filter(b => b.tier === "Action").length;
+  const emergencyCount = countE + countA;
+
+  // Sell recommendation logic (unchanged logic but updated names)
+  const sellNow = batches.find(b => b.tier === "Emergency");
+  const sellSoon = batches.find(b => b.tier === "Action" || b.tier === "Alert");
+  const sellRec = sellNow || sellSoon || null;
+  const sellUrgency = sellNow ? "SELL NOW" : sellSoon?.tier === "Action" ? "SELL SOON" : sellSoon ? "CONSIDER SELLING" : null;
+  const sellColor = sellNow ? "#DC2626" : sellSoon?.tier === "Action" ? "#EA580C" : "#D97706";
+  const sellBg = sellNow ? "#FEE2E2" : sellSoon?.tier === "Action" ? "#FFEDD5" : "#FEF3C7";
+  const estEarnings = sellRec && market ? (sellRec.ohi > 70 ? market.priceModal : market.priceMin) : null;
+
+  const onRefresh = () => { setRefreshing(true); fetchData(); };
+
+  const QuickAction = ({ icon, label, color, bg, onPress }: any) => (
+    <TouchableOpacity style={[styles.qaCard, { backgroundColor: bg }]} onPress={onPress} activeOpacity={0.8}>
+      <Ionicons name={icon} size={26} color={color} />
+      <Text style={[styles.qaLabel, { color }]}>{label}</Text>
+    </TouchableOpacity>
   );
 
   return (
-    <View style={styles.container}>
-      <View style={styles.bgCircle} />
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1E6F5C" />}>
 
-      <ScrollView
-        contentContainerStyle={{ paddingBottom: 40 }}
-        showsVerticalScrollIndicator={false}
-      >
-        <SafeAreaView>
-          <View style={styles.content}>
-            {/* Context Language Button */}
-            <TouchableOpacity 
-              style={styles.globalLangBtn}
-              onPress={() => setLangModalVisible(true)}
-            >
-              <Ionicons name="language" size={18} color="#1E6F5C" />
-              <Text style={styles.globalLangText}>{LANGUAGE_LABELS[language]}</Text>
-              <Ionicons name="chevron-down" size={16} color="#1E6F5C" />
+      {/* Header */}
+      <LinearGradient colors={["#1E6F5C", "#2D917A"]} style={styles.header}>
+        <View>
+          <Text style={styles.greet}>{greeting()}, 👋</Text>
+          <Text style={styles.name}>{username ?? "Farmer"}</Text>
+          <Text style={styles.headerSub}>Here's your farm overview for today</Text>
+        </View>
+        <View style={styles.headerIcon}>
+          <Text style={{ fontSize: 36 }}>🧅</Text>
+        </View>
+      </LinearGradient>
+
+      {loading ? (
+        <ActivityIndicator color="#1E6F5C" style={{ marginTop: 40 }} size="large" />
+      ) : (
+        <>
+          {/* Alert Banner */}
+          {emergencyCount > 0 && (
+            <TouchableOpacity onPress={() => router.push("/(tabs)/leaderboard")} activeOpacity={0.85}>
+              <View style={styles.alertBanner}>
+                <Ionicons name="warning" size={18} color="#DC2626" />
+                <Text style={styles.alertText}>{emergencyCount} batch{emergencyCount > 1 ? "es" : ""} need immediate attention!</Text>
+                <Ionicons name="chevron-forward" size={16} color="#DC2626" />
+              </View>
             </TouchableOpacity>
+          )}
 
-            {/* HEADER */}
-            <View style={styles.header}>
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{t.badge}</Text>
-              </View>
-
-              <Text style={styles.title}>
-                {t.title.split(" ")[0]}{" "}
-                <Text style={{ color: "#2A9D8F" }}>
-                  {t.title.split(" ")[1]}
-                </Text>
-              </Text>
-
-              <Text style={styles.subTitleText}>{t.tagline}</Text>
+          {/* Fleet Stats Row */}
+          <View style={styles.statsRow}>
+            <View style={styles.statCard}>
+              <Text style={styles.statNum}>{batches.length}</Text>
+              <Text style={styles.statLabel}>Total Batches</Text>
             </View>
-
-            {/* ILLUSTRATION */}
-            <View style={styles.illustrationContainer}>
-              <LinearGradient
-                colors={["rgba(30, 111, 92, 0.12)", "rgba(30, 111, 92, 0.05)"]}
-                style={styles.illustrationCircle}
-              >
-                <Text style={{ fontSize: 80 }}>🧅</Text>
-              </LinearGradient>
+            <View style={[styles.statCard, { borderColor: avgOhi > 75 ? "#16A34A" : avgOhi > 55 ? "#D97706" : "#DC2626" }]}>
+              <Text style={[styles.statNum, { color: avgOhi > 75 ? "#16A34A" : avgOhi > 55 ? "#D97706" : "#DC2626" }]}>{avgOhi}</Text>
+              <Text style={styles.statLabel}>Avg. OHI</Text>
             </View>
-
-            {/* FEATURES */}
-            <View style={styles.gridContainer}>
-              <Text style={styles.sectionLabel}>{t.howHelp}</Text>
-
-              <View style={styles.grid}>
-                <Feature icon="stats-chart-outline" textIndex={0} />
-                <Feature icon="shield-checkmark-outline" textIndex={1} />
-                <Feature icon="notifications-outline" textIndex={2} />
-                <Feature icon="chatbubbles-outline" textIndex={3} />
-              </View>
+            <View style={styles.statCard}>
+              <Text style={[styles.statNum, { color: emergencyCount > 0 ? "#DC2626" : "#16A34A" }]}>{emergencyCount}</Text>
+              <Text style={styles.statLabel}>Need Action</Text>
+              {emergencyCount > 0 && (
+                <Text style={{ fontSize: 9, color: "#6B7280", marginTop: 2 }}>{countE} Emerg. + {countA} Act.</Text>
+              )}
             </View>
+          </View>
 
-            {/* CTA */}
-            <View style={styles.footer}>
-              <TouchableOpacity
-                style={styles.mainButton}
-                onPress={() => router.push("/login")}
-                activeOpacity={0.9}
-              >
-                <LinearGradient
-                  colors={["#1E6F5C", "#2D917A"]}
-                  style={styles.buttonGradient}
-                >
-                  <Text style={styles.buttonText}>{t.button}</Text>
-                  <Ionicons name="arrow-forward" size={22} color="#fff" />
+          {/* Worst Batch Card */}
+          {worstBatch && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>⚠️ Needs Attention Most</Text>
+              <TouchableOpacity onPress={() => router.push("/(tabs)/leaderboard")} activeOpacity={0.85}>
+                <LinearGradient colors={[TIER_COLOR[worstBatch.tier], TIER_COLOR[worstBatch.tier] + "CC"]} style={styles.worstCard}>
+                  <View>
+                    <Text style={styles.worstCrate}>{worstBatch.crateId} / {worstBatch.batchId}</Text>
+                    <Text style={styles.worstTier}>{worstBatch.tier}</Text>
+                    <Text style={styles.worstDays}>{worstBatch.daysRemaining} days of safe storage remaining</Text>
+                  </View>
+                  <View style={styles.worstOhi}>
+                    <Text style={styles.worstOhiBig}>{worstBatch.ohi}</Text>
+                    <Text style={styles.worstOhiLabel}>OHI</Text>
+                  </View>
                 </LinearGradient>
               </TouchableOpacity>
             </View>
-          </View>
-        </SafeAreaView>
-      </ScrollView>
+          )}
 
-      {/* Language Picker Modal */}
-      <Modal visible={langModalVisible} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{t.selectLang}</Text>
-              <TouchableOpacity onPress={() => setLangModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#374151" />
-              </TouchableOpacity>
+          {/* All Batches Mini List */}
+          {batches.length > 1 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>📦 All Batches</Text>
+              {batches.map((b, i) => (
+                <View key={`${b.crateId}/${b.batchId}`} style={styles.batchRow}>
+                  <View style={[styles.batchDot, { backgroundColor: TIER_COLOR[b.tier] }]} />
+                  <Text style={styles.batchRowId}>{b.crateId}/{b.batchId}</Text>
+                  <View style={[styles.batchTierBadge, { backgroundColor: TIER_BG[b.tier] }]}>
+                    <Text style={[styles.batchTierText, { color: TIER_COLOR[b.tier] }]}>{b.tier}</Text>
+                  </View>
+                  <Text style={styles.batchOhi}>OHI {b.ohi}</Text>
+                </View>
+              ))}
             </View>
-            
-            <FlatList
-              data={SUPPORTED_LANGUAGES}
-              keyExtractor={(item) => item}
-              numColumns={2}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[
-                    styles.langOptionBtn,
-                    language === item && styles.langOptionBtnActive
-                  ]}
-                  onPress={() => {
-                    setLanguage(item);
-                    setLangModalVisible(false);
-                  }}
-                >
-                  <Text style={[
-                    styles.langOptionText,
-                    language === item && styles.langOptionTextActive
-                  ]}>
-                    {LANGUAGE_LABELS[item]}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            />
+          )}
+
+          {/* Market Price */}
+          {market && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>💹 Onion Market Price</Text>
+              <View style={styles.marketCard}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.marketPrice}>₹{market.priceModal?.toFixed(2)}/{market.unit}</Text>
+                  <Text style={styles.marketTrend}>Range: ₹{market.priceMin?.toFixed(2)} – ₹{market.priceMax?.toFixed(2)}</Text>
+                  <Text style={[styles.marketTrend, { fontSize: 11, color: "#9CA3AF", marginTop: 2 }]}>{market.market}</Text>
+                </View>
+                <Ionicons name="trending-up" size={36} color="#16A34A" />
+              </View>
+            </View>
+          )}
+
+          {/* OHI Scale Legend */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>ℹ️ OHI Health Tiers</Text>
+            <View style={styles.scaleRow}>
+              {[
+                { label: "0–35", tier: "Emergency", color: "#DC2626", bg: "#FEE2E2" },
+                { label: "36–55", tier: "Action", color: "#EA580C", bg: "#FFEDD5" },
+                { label: "56–75", tier: "Alert", color: "#D97706", bg: "#FEF3C7" },
+                { label: "76–100", tier: "Normal", color: "#16A34A", bg: "#DCFCE7" },
+              ].map((item) => (
+                <View key={item.tier} style={[styles.scaleSegment, { backgroundColor: item.bg }]}>
+                  <Text style={[styles.scaleTier, { color: item.color }]}>{item.tier}</Text>
+                  <Text style={styles.scaleRange}>{item.label}</Text>
+                </View>
+              ))}
+            </View>
           </View>
-        </View>
-      </Modal>
-    </View>
+
+          {/* Sell Recommendation */}
+          {batches.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>🤝 Sell Recommendation</Text>
+              {sellRec ? (
+                <View style={[styles.sellCard, { backgroundColor: sellBg, borderLeftColor: sellColor }]}>
+                  <View style={styles.sellTop}>
+                    <View style={[styles.sellBadge, { backgroundColor: sellColor }]}>
+                      <Text style={styles.sellBadgeText}>{sellUrgency}</Text>
+                    </View>
+                    <Text style={styles.sellBatchId}>{sellRec.crateId} / {sellRec.batchId}</Text>
+                  </View>
+                  <Text style={styles.sellReason}>
+                    OHI is <Text style={{ fontWeight: "900", color: sellColor }}>{sellRec.ohi}/100</Text> — only{" "}
+                    <Text style={{ fontWeight: "800" }}>{sellRec.daysRemaining} days</Text> of safe storage left.
+                  </Text>
+                  {estEarnings != null && (
+                    <Text style={styles.sellEarnings}>
+                      At current market: ₹<Text style={{ fontWeight: "900" }}>{estEarnings.toFixed(2)}</Text>/{market?.unit} — sell now to lock in this price.
+                    </Text>
+                  )}
+                  {sellNow && (
+                    <View style={styles.sellWarning}>
+                      <Ionicons name="warning" size={14} color="#DC2626" />
+                      <Text style={styles.sellWarningText}>Further delay risks unsellable stock. Act today.</Text>
+                    </View>
+                  )}
+                </View>
+              ) : (
+                <View style={[styles.sellCard, { backgroundColor: "#DCFCE7", borderLeftColor: "#16A34A" }]}>
+                  <View style={styles.sellTop}>
+                    <View style={[styles.sellBadge, { backgroundColor: "#16A34A" }]}>
+                      <Text style={styles.sellBadgeText}>HOLD</Text>
+                    </View>
+                    <Text style={styles.sellBatchId}>All batches healthy</Text>
+                  </View>
+                  <Text style={styles.sellReason}>
+                    Average OHI is <Text style={{ fontWeight: "900", color: "#16A34A" }}>{avgOhi}/100</Text>. No urgent action needed.
+                  </Text>
+                  {market && (
+                    <Text style={styles.sellEarnings}>
+                      Current market: ₹{market.priceModal?.toFixed(2)}/{market.unit}. Wait for better prices for maximum returns.
+                    </Text>
+                  )}
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* Quick Actions */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>⚡ Quick Actions</Text>
+            <View style={styles.qaGrid}>
+              <QuickAction icon="leaf" label="Sensor Data" color="#1E6F5C" bg="#E2F5EF" onPress={() => router.push("/(tabs)/dashboard")} />
+              <QuickAction icon="cube" label="My Batches" color="#7C3AED" bg="#EDE9FE" onPress={() => router.push("/(tabs)/leaderboard")} />
+              <QuickAction icon="chatbubbles" label="AI Advisor" color="#2563EB" bg="#DBEAFE" onPress={() => router.push("/(tabs)/chatbot")} />
+              <QuickAction icon="person-circle" label="My Profile" color="#D97706" bg="#FEF3C7" onPress={() => router.push("/(tabs)/profile")} />
+            </View>
+          </View>
+        </>
+      )}
+    </ScrollView>
   );
 }
 
-/* ================= STYLES ================= */
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F8FAF9" },
-  bgCircle: {
-    position: "absolute",
-    top: -height * 0.1,
-    right: -width * 0.2,
-    width: width * 0.8,
-    height: width * 0.8,
-    borderRadius: width * 0.4,
-    backgroundColor: "#E2F1ED"
-  },
-  globalLangBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "flex-end",
-    backgroundColor: "#E1F2EE",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginTop: 40,
-    gap: 4
-  },
-  globalLangText: {
-    color: "#1E6F5C",
-    fontWeight: "700",
-    fontSize: 12,
-  },
-  content: { paddingHorizontal: 24 },
-  header: { marginTop: 10, alignItems: "center" },
-  badge: {
-    backgroundColor: "#E1F2EE",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginBottom: 12
-  },
-  badgeText: { color: "#1E6F5C", fontSize: 12, fontWeight: "700" },
-  title: {
-    fontSize: 42,
-    fontWeight: "900",
-    color: "#1A3C34"
-  },
-  subTitleText: { fontSize: 18, color: "#4B5563", fontWeight: "500" },
-  illustrationContainer: {
-    alignItems: "center",
-    marginVertical: 24
-  },
-  illustrationCircle: {
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    justifyContent: "center",
-    alignItems: "center"
-  },
-  gridContainer: { marginTop: 10 },
-  sectionLabel: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#9CA3AF",
-    marginBottom: 15,
-    textAlign: "center"
-  },
-  grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between"
-  },
-  featureItem: {
-    width: "48%",
-    marginBottom: 16,
-    borderRadius: 20,
-    overflow: "hidden"
-  },
-  featureGradient: { padding: 20, alignItems: "center" },
-  iconCircle: {
-    width: 54,
-    height: 54,
-    borderRadius: 18,
-    backgroundColor: "#fff",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 12
-  },
-  featureText: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#1A3C34",
-    textAlign: "center"
-  },
-  footer: { marginTop: 20, marginBottom: 30 },
-  mainButton: { borderRadius: 20, overflow: "hidden" },
-  buttonGradient: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingVertical: 20,
-    gap: 12
-  },
-  buttonText: { color: "#fff", fontSize: 18, fontWeight: "800" },
-  
-  // Modal Styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20
-  },
-  modalContent: {
-    backgroundColor: "#fff",
-    borderRadius: 24,
-    width: "100%",
-    maxHeight: "80%",
-    padding: 24
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 20
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#1A3C34"
-  },
-  langOptionBtn: {
-    flex: 1,
-    margin: 6,
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    alignItems: "center",
-    backgroundColor: "#FAFAFA"
-  },
-  langOptionBtnActive: {
-    borderColor: "#1E6F5C",
-    backgroundColor: "#E1F2EE"
-  },
-  langOptionText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#4B5563"
-  },
-  langOptionTextActive: {
-    color: "#1E6F5C"
-  }
+  container: { flex: 1, backgroundColor: "#F7FAF9" },
+  header: { paddingTop: 56, paddingBottom: 28, paddingHorizontal: 20, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  greet: { fontSize: 14, color: "rgba(255,255,255,0.8)", fontWeight: "600" },
+  name: { fontSize: 26, fontWeight: "900", color: "#fff", marginTop: 2 },
+  headerSub: { fontSize: 12, color: "rgba(255,255,255,0.7)", marginTop: 4 },
+  headerIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: "rgba(255,255,255,0.15)", justifyContent: "center", alignItems: "center" },
+
+  alertBanner: { margin: 16, backgroundColor: "#FEE2E2", borderRadius: 14, padding: 14, flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderColor: "#FECACA" },
+  alertText: { flex: 1, color: "#DC2626", fontWeight: "700", fontSize: 13 },
+
+  statsRow: { flexDirection: "row", gap: 10, paddingHorizontal: 16, marginTop: 16 },
+  statCard: { flex: 1, backgroundColor: "#fff", borderRadius: 16, padding: 14, alignItems: "center", borderWidth: 2, borderColor: "#E5E7EB", elevation: 1 },
+  statNum: { fontSize: 26, fontWeight: "900", color: "#111827" },
+  statLabel: { fontSize: 11, color: "#9CA3AF", marginTop: 3, textAlign: "center" },
+
+  section: { marginHorizontal: 16, marginTop: 20 },
+  sectionTitle: { fontSize: 15, fontWeight: "800", color: "#111827", marginBottom: 10 },
+
+  worstCard: { borderRadius: 18, padding: 20, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  worstCrate: { fontSize: 16, fontWeight: "900", color: "#fff" },
+  worstTier: { fontSize: 13, color: "rgba(255,255,255,0.85)", fontWeight: "700", marginTop: 2 },
+  worstDays: { fontSize: 12, color: "rgba(255,255,255,0.75)", marginTop: 4 },
+  worstOhi: { alignItems: "center" },
+  worstOhiBig: { fontSize: 36, fontWeight: "900", color: "#fff" },
+  worstOhiLabel: { fontSize: 12, color: "rgba(255,255,255,0.75)" },
+
+  batchRow: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "#fff", borderRadius: 12, padding: 12, marginBottom: 8, elevation: 1 },
+  batchDot: { width: 10, height: 10, borderRadius: 5 },
+  batchRowId: { flex: 1, fontSize: 13, fontWeight: "700", color: "#111827" },
+  batchTierBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 },
+  batchTierText: { fontSize: 11, fontWeight: "700" },
+  batchOhi: { fontSize: 12, color: "#6B7280", fontWeight: "600" },
+
+  marketCard: { backgroundColor: "#fff", borderRadius: 16, padding: 20, flexDirection: "row", justifyContent: "space-between", alignItems: "center", elevation: 2 },
+  marketPrice: { fontSize: 28, fontWeight: "900", color: "#111827" },
+  marketTrend: { fontSize: 13, color: "#6B7280", marginTop: 4 },
+
+  qaGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  qaCard: { width: "47%", borderRadius: 16, padding: 18, alignItems: "center", gap: 8 },
+  qaLabel: { fontSize: 13, fontWeight: "800" },
+
+  sellCard: { borderRadius: 16, padding: 16, borderLeftWidth: 5, gap: 8, elevation: 1 },
+  sellTop: { flexDirection: "row", alignItems: "center", gap: 10 },
+  sellBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
+  sellBadgeText: { color: "#fff", fontWeight: "900", fontSize: 11, letterSpacing: 0.5 },
+  sellBatchId: { fontSize: 15, fontWeight: "800", color: "#111827" },
+  sellReason: { fontSize: 13, color: "#374151", lineHeight: 20 },
+  sellEarnings: { fontSize: 13, color: "#1E6F5C", fontWeight: "600", lineHeight: 20 },
+  sellWarning: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 },
+  sellWarningText: { fontSize: 12, color: "#DC2626", fontWeight: "700", flex: 1 },
+
+  scaleRow: { flexDirection: "row", gap: 6, marginTop: 4 },
+  scaleSegment: { flex: 1, borderRadius: 10, padding: 8, alignItems: "center", gap: 2 },
+  scaleTier: { fontSize: 10, fontWeight: "800" },
+  scaleRange: { fontSize: 9, color: "#6B7280", fontWeight: "600" },
 });

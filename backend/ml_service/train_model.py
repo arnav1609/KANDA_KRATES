@@ -56,42 +56,42 @@ def generate_training_data(n_samples=5000):
         )[0]
 
         if scenario == "normal":
-            temp = random.uniform(20, 28)
-            humidity = random.uniform(55, 70)
-            co2 = random.uniform(300, 1200)
-            nh3 = random.uniform(0.0, 0.4)
-            voc = random.uniform(0.0, 0.4)
-            ohi = random.uniform(80, 100)
-            days = random.uniform(20, 60)
+            temp = random.uniform(20, 27)
+            humidity = random.uniform(55, 68)
+            co2 = random.uniform(300, 1000)
+            nh3 = random.uniform(0.0, 0.3)
+            voc = random.uniform(0.0, 0.3)
+            ohi = random.uniform(76, 100)   # Normal: 76–100
+            days = random.uniform(25, 60)
             tier = "Normal"
 
         elif scenario == "alert":
-            temp = random.uniform(26, 33)
-            humidity = random.uniform(65, 80)
-            co2 = random.uniform(800, 3500)
-            nh3 = random.uniform(0.2, 1.2)
-            voc = random.uniform(0.2, 1.2)
-            ohi = random.uniform(60, 82)
-            days = random.uniform(10, 25)
+            temp = random.uniform(27, 32)
+            humidity = random.uniform(66, 78)
+            co2 = random.uniform(1000, 3000)
+            nh3 = random.uniform(0.3, 1.0)
+            voc = random.uniform(0.3, 1.0)
+            ohi = random.uniform(56, 75)    # Alert: 56–75
+            days = random.uniform(12, 25)
             tier = "Alert"
 
         elif scenario == "action":
-            temp = random.uniform(30, 38)
-            humidity = random.uniform(72, 88)
-            co2 = random.uniform(2500, 8000)
-            nh3 = random.uniform(0.8, 5.0)
-            voc = random.uniform(0.8, 4.0)
-            ohi = random.uniform(40, 65)
-            days = random.uniform(3, 12)
+            temp = random.uniform(31, 38)
+            humidity = random.uniform(76, 88)
+            co2 = random.uniform(3000, 7000)
+            nh3 = random.uniform(1.0, 4.0)
+            voc = random.uniform(1.0, 3.5)
+            ohi = random.uniform(36, 55)    # Action: 36–55
+            days = random.uniform(4, 12)
             tier = "Action"
 
         else:  # emergency
-            temp = random.uniform(34, 45)
-            humidity = random.uniform(80, 98)
-            co2 = random.uniform(6000, 15000)
-            nh3 = random.uniform(3.0, 15.0)
-            voc = random.uniform(2.5, 10.0)
-            ohi = random.uniform(0, 45)
+            temp = random.uniform(36, 45)
+            humidity = random.uniform(85, 98)
+            co2 = random.uniform(7000, 15000)
+            nh3 = random.uniform(4.0, 15.0)
+            voc = random.uniform(3.0, 10.0)
+            ohi = random.uniform(0, 35)     # Emergency: 0–35
             days = random.uniform(0, 4)
             tier = "Emergency"
 
