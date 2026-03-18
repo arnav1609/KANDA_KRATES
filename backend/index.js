@@ -207,8 +207,8 @@ app.get("/api/market/price/onion", async (req, res) => {
  *  MONITOR      → daysRemaining <= 14 AND priceModal < 2000   (wait for better price)
  *  HOLD         → daysRemaining > 14  (plenty of time — wait for market to improve)
  */
-app.get("/api/advisory/:crateId", async (req, res) => {
-  const { crateId } = req.params;
+app.get("/api/advisory/:crateId/:lang", async (req, res) => {
+  const { crateId, lang } = req.params;
 
   try {
     // Step 1: Get all batches for this crate from the in-memory sensor store
@@ -330,10 +330,48 @@ app.get("/api/advisory/:crateId", async (req, res) => {
     const order = { SELL_URGENT: 0, SELL_NOW: 1, MONITOR: 2, HOLD: 3 };
     batchRecommendations.sort((a, b) => (order[a.action] ?? 99) - (order[b.action] ?? 99));
 
+    let finalRecommendations = batchRecommendations;
+    
+    // Auto-translate using Groq if language is not English
+    if (lang && lang !== "en") {
+      const langMap = {
+        hi: "Hindi", mr: "Marathi", ta: "Tamil", te: "Telugu", kn: "Kannada",
+        ml: "Malayalam", gu: "Gujarati", pa: "Punjabi", bn: "Bengali", or: "Odia"
+      };
+      const targetLang = langMap[lang] || "Hindi";
+      
+      try {
+        const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+        const prompt = `Translate only the 'urgency' and 'reason' fields of this JSON array into ${targetLang} for an agricultural app. DO NOT translate any other fields or keys. Return only the valid JSON array.\n${JSON.stringify(batchRecommendations)}`;
+        
+        const completion = await groq.chat.completions.create({
+          messages: [{ role: "user", content: prompt }],
+          model: "llama-3.1-8b-instant",
+          response_format: { type: "json_object" }
+        });
+        
+        const translatedContent = completion.choices[0].message.content;
+        // The model might wrap it in an object like {"recommendations": [...]}, so extract the array if needed
+        const parsed = JSON.parse(translatedContent);
+        if (Array.isArray(parsed)) finalRecommendations = parsed;
+        else if (parsed.recommendations) finalRecommendations = parsed.recommendations;
+        else if (Object.values(parsed)[0]) finalRecommendations = Object.values(parsed)[0];
+        
+        // Restore original non-text fields just in case LLM messed them up
+        finalRecommendations = finalRecommendations.map((tr, i) => ({
+          ...batchRecommendations[i],
+          urgency: tr.urgency || batchRecommendations[i].urgency,
+          reason: tr.reason || batchRecommendations[i].reason
+        }));
+      } catch (translateErr) {
+        console.warn("Translation failed for advisory:", translateErr.message);
+      }
+    }
+
     return res.json({
       crateId,
       marketPrice: cachedMarketData,
-      recommendations: batchRecommendations,
+      recommendations: finalRecommendations,
       generatedAt: new Date().toISOString()
     });
 
@@ -551,9 +589,15 @@ app.get("/api/history/:crate", async (req, res) => {
 /* GET AI Health Summary (Converts Chart Data into Simple Sentence) */
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
+const LANGUAGE_MAP = {
+  en: "English", hi: "Hindi", mr: "Marathi", ta: "Tamil", te: "Telugu",
+  kn: "Kannada", ml: "Malayalam", gu: "Gujarati", pa: "Punjabi", bn: "Bengali", or: "Odia"
+};
+
 app.get("/api/history/health/:crate/:lang", async (req, res) => {
   try {
     const { crate, lang } = req.params;
+    const langName = LANGUAGE_MAP[lang] || "English";
     
     // 1. Fetch the last 24 hours of data to give the LLM context
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -579,8 +623,8 @@ app.get("/api/history/health/:crate/:lang", async (req, res) => {
     Current Data Now: Temp ${endData.temperature}°C, Humidity ${endData.humidity}%
     
     CRITICAL INSTRUCTIONS:
-    1. Translate your response strictly into the ISO language code: '${lang}'.
-    2. DO NOT include any markdown, bold text, or asterisks (like **en**).
+    1. Write your response strictly and exclusively in ${langName}.
+    2. DO NOT include any markdown, bold text, or asterisks.
     3. DO NOT include the original English text if a translation is requested.
     4. ONLY output the final 1-2 sentences. Nothing else.
     `;

@@ -26,7 +26,7 @@ export const API_ENDPOINTS = {
   crate: (crateId: string) => `/api/crates/${crateId}`,
   crateReassign: (crateId: string) => `/api/crates/${crateId}/reassign`,
   marketPrice: "/api/market/price/onion",
-  advisory: (crateId: string) => `/api/advisory/${crateId}`,
+  advisory: (crateId: string, lang: string) => `/api/advisory/${crateId}/${lang}`,
   fleetAnalytics: "/api/analytics/fleet",
 } as const;
 

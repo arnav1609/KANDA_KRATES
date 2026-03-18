@@ -22,7 +22,12 @@ export const LANGUAGE_LABELS: Record<LanguageCode, string> = {
 type LanguageContextType = {
   language: LanguageCode;
   setLanguage: (lang: LanguageCode) => Promise<void>;
+  t: (key: string) => string;
 };
+
+// Auto-generated translations dictionary
+import translationsData from "../utils/translations.json";
+const TRANSLATIONS: Record<string, Record<string, string>> = translationsData;
 
 const LanguageContext = createContext<LanguageContextType | null>(null);
 
@@ -55,8 +60,18 @@ export const LanguageProvider = ({ children }: { children: React.ReactNode }) =>
     }
   };
 
+  // Translation Helper function
+  const t = (key: string): string => {
+    if (language === "en") return key;
+    const langDict = TRANSLATIONS[language];
+    if (langDict && langDict[key]) {
+      return langDict[key];
+    }
+    return key; // fallback to English key
+  };
+
   return (
-    <LanguageContext.Provider value={{ language, setLanguage }}>
+    <LanguageContext.Provider value={{ language, setLanguage, t }}>
       {children}
     </LanguageContext.Provider>
   );

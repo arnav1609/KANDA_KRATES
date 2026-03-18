@@ -74,7 +74,7 @@ export default function AdminDashboard() {
       if (farmRes.ok) setFarmers(await farmRes.json());
       if (crateRes.ok) setCrates(await crateRes.json());
 
-      // Fleet analytics fetched separately -€” slow ML calls won't block crates/farmers
+      // Fleet analytics fetched separately - slow ML calls won't block crates/farmers
       try {
         const fleetRes = await secureRequest(API_ENDPOINTS.fleetAnalytics);
         if (fleetRes.ok) setFleet(await fleetRes.json());
@@ -92,7 +92,7 @@ export default function AdminDashboard() {
   useEffect(() => { fetchData(); }, []);
   const onRefresh = () => { setRefreshing(true); fetchData(); };
 
-  // -”€-”€ Register Crate -”€-”€
+  // --- Register Crate ---
   const registerCrate = async () => {
     if (!newCrateId || !newFarmerUser) {
       Alert.alert("Missing Fields", "Crate ID and Farmer Username are required.");
@@ -117,7 +117,7 @@ export default function AdminDashboard() {
     }
   };
 
-  // -”€-”€ Delete Crate -”€-”€
+  // --- Delete Crate ---
   const deleteCrate = (crateId: string) => {
     Alert.alert("Delete Crate", `Remove ${crateId.toUpperCase()}? This cannot be undone.`, [
       { text: "Cancel", style: "cancel" },
@@ -129,7 +129,7 @@ export default function AdminDashboard() {
     ]);
   };
 
-  // -”€-”€ Reassign Crate -”€-”€
+  // --- Reassign Crate ---
   const submitReassign = async () => {
     if (!reassignCrate || !reassignTarget.trim()) return;
     try {
@@ -150,7 +150,7 @@ export default function AdminDashboard() {
     }
   };
 
-  // -”€-”€ Edit Farmer -”€-”€
+  // --- Edit Farmer ---
   const submitEditFarmer = async () => {
     if (!editingFarmer) return;
     try {
@@ -170,7 +170,7 @@ export default function AdminDashboard() {
     }
   };
 
-  // -”€-”€ Delete Farmer -”€-”€
+  // --- Delete Farmer ---
   const deleteFarmer = (username: string) => {
     Alert.alert("Remove Farmer", `Remove ${username}? Their crates will be unassigned.`, [
       { text: "Cancel", style: "cancel" },
@@ -196,7 +196,7 @@ export default function AdminDashboard() {
         </TouchableOpacity>
       </LinearGradient>
 
-      {/* -”€-”€ Stats Row -”€-”€ */}
+      {/* --- Stats Row --- */}
       {fleet && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statsRow} contentContainerStyle={{ gap: 10, paddingHorizontal: 20 }}>
           <StatCard label="Total Crates" value={String(fleet.totalCrates)} icon="cube" color="#1E6F5C" />
@@ -207,7 +207,7 @@ export default function AdminDashboard() {
         </ScrollView>
       )}
 
-      {/* -”€-”€ Global Alert Feed -”€-”€ */}
+      {/* --- Global Alert Feed --- */}
       {alerts.length > 0 && (
         <View style={styles.alertFeedBox}>
           <View style={styles.alertFeedHeader}>
@@ -226,7 +226,7 @@ export default function AdminDashboard() {
         </View>
       )}
 
-      {/* -”€-”€ Tabs -”€-”€ */}
+      {/* --- Tabs --- */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexShrink: 0 }}>
         <View style={styles.tabs}>
           {(["home", "crates", "farmers", "analytics"] as const).map(tab => (
@@ -239,7 +239,7 @@ export default function AdminDashboard() {
         </View>
       </ScrollView>
 
-      {/* -”€-”€ Tab Content -”€-”€ */}
+      {/* --- Tab Content --- */}
       {loading ? (
         <View style={styles.center}><ActivityIndicator size="large" color="#1E6F5C" /></View>
       ) : activeTab === "home" ? (
@@ -320,8 +320,8 @@ export default function AdminDashboard() {
                   <View style={styles.cardInfo}>
                     <Text style={styles.cardTitle}>{item.crateId.toUpperCase()}</Text>
                     <Text style={styles.cardSub}>Farmer: {item.assignedFarmerUsername || "Unassigned"}</Text>
-                    {farmer && <Text style={styles.cardMeta}>ðŸ“ž {farmer.phoneNumber}</Text>}
-                    {crateAlert && <Text style={[styles.tierBadge, { color: TIER_COLOR[tier] }]}>{tier} -· OHI {crateAlert.ohi} -· {crateAlert.daysRemaining}d</Text>}
+                    {farmer && <Text style={styles.cardMeta}>📞 {farmer.phoneNumber}</Text>}
+                    {crateAlert && <Text style={[styles.tierBadge, { color: TIER_COLOR[tier] }]}>{tier} - OHI {crateAlert.ohi} - {crateAlert.daysRemaining}d</Text>}
                   </View>
                   <View style={styles.cardActions}>
                     <TouchableOpacity onPress={() => { setReassignCrate(item); setReassignTarget(item.assignedFarmerUsername); setReassignModal(true); }} style={styles.actionBtn}>
@@ -369,7 +369,7 @@ export default function AdminDashboard() {
           }}
         />
       ) : (
-        // -”€-”€ Analytics Tab -”€-”€
+        // --- Analytics Tab ---
         <ScrollView contentContainerStyle={styles.analyticsContainer} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1E6F5C" />}>
           {fleet ? (
             <>
@@ -396,20 +396,20 @@ export default function AdminDashboard() {
                 <View key={i} style={[styles.analyticsCard, { borderLeftColor: TIER_COLOR[c.tier] }]}>
                   <View>
                     <Text style={styles.analyticsCardTitle}>{c.crateId.toUpperCase()} / {c.batchId.toUpperCase()}</Text>
-                    <Text style={styles.analyticsCardSub}>{c.tier} -· OHI {c.ohi}/100 -· {c.daysRemaining}d remaining</Text>
-                    <Text style={styles.analyticsCardSub}>ðŸŒ¡ï¸ {c.temperature}C -· ðŸ’§ {c.humidity}%</Text>
+                    <Text style={styles.analyticsCardSub}>{c.tier} - OHI {c.ohi}/100 - {c.daysRemaining}d remaining</Text>
+                    <Text style={styles.analyticsCardSub}>🌡️ {c.temperature}C - 💧 {c.humidity}% </Text>
                   </View>
                   <Text style={[styles.analyticsOhi, { color: TIER_COLOR[c.tier] }]}>{c.ohi}</Text>
                 </View>
               ))}
 
-              <Text style={styles.lastUpdated}>Last updated: {fleet.generatedAt ? new Date(fleet.generatedAt).toLocaleTimeString() : "-€”"}</Text>
+              <Text style={styles.lastUpdated}>Last updated: {fleet.generatedAt ? new Date(fleet.generatedAt).toLocaleTimeString() : "-"}</Text>
             </>
           ) : <View style={styles.center}><Text style={styles.emptyText}>No fleet data available.</Text></View>}
         </ScrollView>
       )}
 
-      {/* -”€-”€ Register Crate Modal -”€-”€ */}
+      {/* --- Register Crate Modal --- */}
       <Modal visible={crateModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
@@ -432,7 +432,7 @@ export default function AdminDashboard() {
         </View>
       </Modal>
 
-      {/* -”€-”€ Edit Farmer Modal -”€-”€ */}
+      {/* --- Edit Farmer Modal --- */}
       <Modal visible={editFarmerModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
@@ -452,7 +452,7 @@ export default function AdminDashboard() {
         </View>
       </Modal>
 
-      {/* -”€-”€ Reassign Crate Modal -”€-”€ */}
+      {/* --- Reassign Crate Modal --- */}
       <Modal visible={reassignModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>

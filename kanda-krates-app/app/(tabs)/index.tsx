@@ -20,16 +20,16 @@ const TIER_BG: Record<string, string> = {
   Normal: "#DCFCE7", Alert: "#FEF3C7", Action: "#FFEDD5", Emergency: "#FEE2E2"
 };
 
-function greeting() {
+function greeting(t: (s: string) => string) {
   const h = new Date().getHours();
-  if (h < 12) return "Good morning";
-  if (h < 17) return "Good afternoon";
-  return "Good evening";
+  if (h < 12) return t("Good morning");
+  if (h < 17) return t("Good afternoon");
+  return t("Good evening");
 }
 
 export default function FarmerHome() {
   const { username } = useAuth();
-  const { language } = useLanguage();
+  const { t } = useLanguage();
   const router = useRouter();
 
   const [batches, setBatches] = useState<BatchSummary[]>([]);
@@ -81,7 +81,7 @@ export default function FarmerHome() {
   const sellNow = batches.find(b => b.tier === "Emergency");
   const sellSoon = batches.find(b => b.tier === "Action" || b.tier === "Alert");
   const sellRec = sellNow || sellSoon || null;
-  const sellUrgency = sellNow ? "SELL NOW" : sellSoon?.tier === "Action" ? "SELL SOON" : sellSoon ? "CONSIDER SELLING" : null;
+  const sellUrgency = sellNow ? t("SELL NOW") : sellSoon?.tier === "Action" ? t("SELL SOON") : sellSoon ? t("CONSIDER SELLING") : null;
   const sellColor = sellNow ? "#DC2626" : sellSoon?.tier === "Action" ? "#EA580C" : "#D97706";
   const sellBg = sellNow ? "#FEE2E2" : sellSoon?.tier === "Action" ? "#FFEDD5" : "#FEF3C7";
   const estEarnings = sellRec && market ? (sellRec.ohi > 70 ? market.priceModal : market.priceMin) : null;
@@ -102,9 +102,9 @@ export default function FarmerHome() {
       {/* Header */}
       <LinearGradient colors={["#1E6F5C", "#2D917A"]} style={styles.header}>
         <View>
-          <Text style={styles.greet}>{greeting()}, 👋</Text>
+          <Text style={styles.greet}>{greeting(t)}, 👋</Text>
           <Text style={styles.name}>{username ?? "Farmer"}</Text>
-          <Text style={styles.headerSub}>Here's your farm overview for today</Text>
+          <Text style={styles.headerSub}>{t("Here's your farm overview for today")}</Text>
         </View>
         <View style={styles.headerIcon}>
           <Text style={{ fontSize: 36 }}>🧅</Text>
@@ -120,7 +120,7 @@ export default function FarmerHome() {
             <TouchableOpacity onPress={() => router.push("/(tabs)/leaderboard")} activeOpacity={0.85}>
               <View style={styles.alertBanner}>
                 <Ionicons name="warning" size={18} color="#DC2626" />
-                <Text style={styles.alertText}>{emergencyCount} batch{emergencyCount > 1 ? "es" : ""} need immediate attention!</Text>
+                <Text style={styles.alertText}>{emergencyCount} {t("batches need immediate attention!")}</Text>
                 <Ionicons name="chevron-forward" size={16} color="#DC2626" />
               </View>
             </TouchableOpacity>
@@ -130,17 +130,17 @@ export default function FarmerHome() {
           <View style={styles.statsRow}>
             <View style={styles.statCard}>
               <Text style={styles.statNum}>{batches.length}</Text>
-              <Text style={styles.statLabel}>Total Batches</Text>
+              <Text style={styles.statLabel}>{t("Total Batches")}</Text>
             </View>
             <View style={[styles.statCard, { borderColor: avgOhi > 75 ? "#16A34A" : avgOhi > 55 ? "#D97706" : "#DC2626" }]}>
               <Text style={[styles.statNum, { color: avgOhi > 75 ? "#16A34A" : avgOhi > 55 ? "#D97706" : "#DC2626" }]}>{avgOhi}</Text>
-              <Text style={styles.statLabel}>Avg. OHI</Text>
+              <Text style={styles.statLabel}>{t("Avg. OHI")}</Text>
             </View>
             <View style={styles.statCard}>
               <Text style={[styles.statNum, { color: emergencyCount > 0 ? "#DC2626" : "#16A34A" }]}>{emergencyCount}</Text>
-              <Text style={styles.statLabel}>Need Action</Text>
+              <Text style={styles.statLabel}>{t("Need Action")}</Text>
               {emergencyCount > 0 && (
-                <Text style={{ fontSize: 9, color: "#6B7280", marginTop: 2 }}>{countE} Emerg. + {countA} Act.</Text>
+                <Text style={{ fontSize: 9, color: "#6B7280", marginTop: 2 }}>{countE} {t("Emerg.")} + {countA} {t("Act.")}</Text>
               )}
             </View>
           </View>
@@ -148,17 +148,17 @@ export default function FarmerHome() {
           {/* Worst Batch Card */}
           {worstBatch && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>⚠️ Needs Attention Most</Text>
+              <Text style={styles.sectionTitle}>{t("⚠️ Needs Attention Most")}</Text>
               <TouchableOpacity onPress={() => router.push("/(tabs)/leaderboard")} activeOpacity={0.85}>
                 <LinearGradient colors={[TIER_COLOR[worstBatch.tier], TIER_COLOR[worstBatch.tier] + "CC"]} style={styles.worstCard}>
                   <View>
                     <Text style={styles.worstCrate}>{worstBatch.crateId} / {worstBatch.batchId}</Text>
-                    <Text style={styles.worstTier}>{worstBatch.tier}</Text>
-                    <Text style={styles.worstDays}>{worstBatch.daysRemaining} days of safe storage remaining</Text>
+                    <Text style={styles.worstTier}>{t(worstBatch.tier)}</Text>
+                    <Text style={styles.worstDays}>{worstBatch.daysRemaining} {t("days of safe storage remaining")}</Text>
                   </View>
                   <View style={styles.worstOhi}>
                     <Text style={styles.worstOhiBig}>{worstBatch.ohi}</Text>
-                    <Text style={styles.worstOhiLabel}>OHI</Text>
+                    <Text style={styles.worstOhiLabel}>{t("OHI")}</Text>
                   </View>
                 </LinearGradient>
               </TouchableOpacity>
@@ -168,15 +168,15 @@ export default function FarmerHome() {
           {/* All Batches Mini List */}
           {batches.length > 1 && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>📦 All Batches</Text>
+              <Text style={styles.sectionTitle}>{t("📦 All Batches")}</Text>
               {batches.map((b, i) => (
                 <View key={`${b.crateId}/${b.batchId}`} style={styles.batchRow}>
                   <View style={[styles.batchDot, { backgroundColor: TIER_COLOR[b.tier] }]} />
-                  <Text style={styles.batchRowId}>{b.crateId}/{b.batchId}</Text>
+                  <Text style={styles.batchRowId}>{b.crateId.replace(/crate/i, t("Crate"))}/{b.batchId.replace(/batch/i, t("Batch"))}</Text>
                   <View style={[styles.batchTierBadge, { backgroundColor: TIER_BG[b.tier] }]}>
-                    <Text style={[styles.batchTierText, { color: TIER_COLOR[b.tier] }]}>{b.tier}</Text>
+                    <Text style={[styles.batchTierText, { color: TIER_COLOR[b.tier] }]}>{t(b.tier)}</Text>
                   </View>
-                  <Text style={styles.batchOhi}>OHI {b.ohi}</Text>
+                  <Text style={styles.batchOhi}>{t("OHI")} {b.ohi}</Text>
                 </View>
               ))}
             </View>
@@ -185,11 +185,11 @@ export default function FarmerHome() {
           {/* Market Price */}
           {market && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>💹 Onion Market Price</Text>
+              <Text style={styles.sectionTitle}>{t("💹 Onion Market Price")}</Text>
               <View style={styles.marketCard}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.marketPrice}>₹{market.priceModal?.toFixed(2)}/{market.unit}</Text>
-                  <Text style={styles.marketTrend}>Range: ₹{market.priceMin?.toFixed(2)} – ₹{market.priceMax?.toFixed(2)}</Text>
+                  <Text style={styles.marketTrend}>{t("Range")}: ₹{market.priceMin?.toFixed(2)} – ₹{market.priceMax?.toFixed(2)}</Text>
                   <Text style={[styles.marketTrend, { fontSize: 11, color: "#9CA3AF", marginTop: 2 }]}>{market.market}</Text>
                 </View>
                 <Ionicons name="trending-up" size={36} color="#16A34A" />
@@ -199,7 +199,7 @@ export default function FarmerHome() {
 
           {/* OHI Scale Legend */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>ℹ️ OHI Health Tiers</Text>
+            <Text style={styles.sectionTitle}>{t("ℹ️ OHI Health Tiers")}</Text>
             <View style={styles.scaleRow}>
               {[
                 { label: "0–35", tier: "Emergency", color: "#DC2626", bg: "#FEE2E2" },
@@ -208,7 +208,7 @@ export default function FarmerHome() {
                 { label: "76–100", tier: "Normal", color: "#16A34A", bg: "#DCFCE7" },
               ].map((item) => (
                 <View key={item.tier} style={[styles.scaleSegment, { backgroundColor: item.bg }]}>
-                  <Text style={[styles.scaleTier, { color: item.color }]}>{item.tier}</Text>
+                  <Text style={[styles.scaleTier, { color: item.color }]}>{t(item.tier)}</Text>
                   <Text style={styles.scaleRange}>{item.label}</Text>
                 </View>
               ))}
@@ -218,28 +218,28 @@ export default function FarmerHome() {
           {/* Sell Recommendation */}
           {batches.length > 0 && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>🤝 Sell Recommendation</Text>
+              <Text style={styles.sectionTitle}>{t("🤝 Sell Recommendation")}</Text>
               {sellRec ? (
                 <View style={[styles.sellCard, { backgroundColor: sellBg, borderLeftColor: sellColor }]}>
                   <View style={styles.sellTop}>
                     <View style={[styles.sellBadge, { backgroundColor: sellColor }]}>
                       <Text style={styles.sellBadgeText}>{sellUrgency}</Text>
                     </View>
-                    <Text style={styles.sellBatchId}>{sellRec.crateId} / {sellRec.batchId}</Text>
+                    <Text style={styles.sellBatchId}>{sellRec.crateId.toUpperCase().replace("CRATE", t("Crate").toUpperCase())} / {sellRec.batchId.toUpperCase().replace("BATCH", t("Batch").toUpperCase())}</Text>
                   </View>
                   <Text style={styles.sellReason}>
-                    OHI is <Text style={{ fontWeight: "900", color: sellColor }}>{sellRec.ohi}/100</Text> — only{" "}
-                    <Text style={{ fontWeight: "800" }}>{sellRec.daysRemaining} days</Text> of safe storage left.
+                    {t("OHI is")} <Text style={{ fontWeight: "900", color: sellColor }}>{sellRec.ohi}/100</Text> {t("— only")}{" "}
+                    <Text style={{ fontWeight: "800" }}>{sellRec.daysRemaining} {t("days")}</Text>
                   </Text>
                   {estEarnings != null && (
                     <Text style={styles.sellEarnings}>
-                      At current market: ₹<Text style={{ fontWeight: "900" }}>{estEarnings.toFixed(2)}</Text>/{market?.unit} — sell now to lock in this price.
-                    </Text>
+                    {t("At current market:")} ₹{estEarnings.toFixed(2)}/kg {t("— sell now to lock in this price.")}
+                  </Text>
                   )}
                   {sellNow && (
                     <View style={styles.sellWarning}>
                       <Ionicons name="warning" size={14} color="#DC2626" />
-                      <Text style={styles.sellWarningText}>Further delay risks unsellable stock. Act today.</Text>
+                      <Text style={styles.sellWarningText}>{t("Further delay risks unsellable stock. Act today.")}</Text>
                     </View>
                   )}
                 </View>
@@ -247,16 +247,16 @@ export default function FarmerHome() {
                 <View style={[styles.sellCard, { backgroundColor: "#DCFCE7", borderLeftColor: "#16A34A" }]}>
                   <View style={styles.sellTop}>
                     <View style={[styles.sellBadge, { backgroundColor: "#16A34A" }]}>
-                      <Text style={styles.sellBadgeText}>HOLD</Text>
+                      <Text style={styles.sellBadgeText}>{t("HOLD")}</Text>
                     </View>
-                    <Text style={styles.sellBatchId}>All batches healthy</Text>
+                    <Text style={styles.sellBatchId}>{t("All batches healthy")}</Text>
                   </View>
                   <Text style={styles.sellReason}>
-                    Average OHI is <Text style={{ fontWeight: "900", color: "#16A34A" }}>{avgOhi}/100</Text>. No urgent action needed.
+                    {t("Your onions are safely stored. Monitor OHI daily.")}
                   </Text>
                   {market && (
                     <Text style={styles.sellEarnings}>
-                      Current market: ₹{market.priceModal?.toFixed(2)}/{market.unit}. Wait for better prices for maximum returns.
+                      {t("Current market:")} ₹{market.priceModal?.toFixed(2)}/{market.unit}. {t("Wait for better prices for maximum returns.")}
                     </Text>
                   )}
                 </View>
@@ -266,12 +266,12 @@ export default function FarmerHome() {
 
           {/* Quick Actions */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>⚡ Quick Actions</Text>
+            <Text style={styles.sectionTitle}>{t("⚡ Quick Actions")}</Text>
             <View style={styles.qaGrid}>
-              <QuickAction icon="leaf" label="Sensor Data" color="#1E6F5C" bg="#E2F5EF" onPress={() => router.push("/(tabs)/dashboard")} />
-              <QuickAction icon="cube" label="My Batches" color="#7C3AED" bg="#EDE9FE" onPress={() => router.push("/(tabs)/leaderboard")} />
-              <QuickAction icon="chatbubbles" label="AI Advisor" color="#2563EB" bg="#DBEAFE" onPress={() => router.push("/(tabs)/chatbot")} />
-              <QuickAction icon="person-circle" label="My Profile" color="#D97706" bg="#FEF3C7" onPress={() => router.push("/(tabs)/profile")} />
+              <QuickAction icon="leaf" label={t("Sensor Data")} color="#1E6F5C" bg="#E2F5EF" onPress={() => router.push("/(tabs)/dashboard")} />
+              <QuickAction icon="cube" label={t("My Batches")} color="#7C3AED" bg="#EDE9FE" onPress={() => router.push("/(tabs)/leaderboard")} />
+              <QuickAction icon="chatbubbles" label={t("AI Advisor")} color="#2563EB" bg="#DBEAFE" onPress={() => router.push("/(tabs)/chatbot")} />
+              <QuickAction icon="person-circle" label={t("My Profile")} color="#D97706" bg="#FEF3C7" onPress={() => router.push("/(tabs)/profile")} />
             </View>
           </View>
         </>

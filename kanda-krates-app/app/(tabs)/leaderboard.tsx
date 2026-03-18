@@ -7,6 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { secureRequest, API_ENDPOINTS } from "../../config/api";
 import { useAuth } from "../../context/AuthContext";
+import { useLanguage } from "../../context/LanguageContext";
 
 /* ─── Types ─── */
 type BatchItem = {
@@ -53,6 +54,7 @@ function OhiRing({ ohi, tier }: { ohi: number; tier: string }) {
 /* ─── Main ─── */
 export default function BatchesScreen() {
   const { username } = useAuth();
+  const { t } = useLanguage();
   const [batches, setBatches] = useState<BatchItem[]>([]);
   const [selected, setSelected] = useState<BatchItem | null>(null);
   const [loading, setLoading] = useState(true);
@@ -149,17 +151,17 @@ export default function BatchesScreen() {
 
           {/* Info */}
           <View style={{ flex: 1 }}>
-            <Text style={styles.batchId}>{item.crateId} / {item.batchId}</Text>
+            <Text style={styles.batchId}>{item.crateId.replace(/crate/i, t("Crate"))} / {item.batchId.replace(/batch/i, t("Batch"))}</Text>
             <View style={styles.tagsRow}>
               <View style={[styles.tierTag, { backgroundColor: tierBg }]}>
-                <Text style={[styles.tierTagText, { color: tierColor }]}>{item.tier}</Text>
+                <Text style={[styles.tierTagText, { color: tierColor }]}>{t(item.tier)}</Text>
               </View>
               <Text style={styles.metaText}>🌡 {item.temperature}°C  💧 {item.humidity}%</Text>
             </View>
             {isSold && (
               <View style={styles.soldBadge}>
                 <Ionicons name="checkmark-circle" size={12} color="#16A34A" />
-                <Text style={styles.soldText}>Harvested</Text>
+                <Text style={styles.soldText}>{t("Harvested")}</Text>
               </View>
             )}
           </View>
@@ -172,7 +174,7 @@ export default function BatchesScreen() {
             <Text style={[styles.daysBig, { color: item.daysRemaining < 5 ? "#DC2626" : "#111827" }]}>
               {item.daysRemaining}
             </Text>
-            <Text style={styles.daysLabel}>days</Text>
+            <Text style={styles.daysLabel}>{t("days")}</Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -184,8 +186,8 @@ export default function BatchesScreen() {
       {/* Header */}
       <LinearGradient colors={["#1E6F5C", "#2D917A"]} style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>📦 My Batches</Text>
-          <Text style={styles.headerSub}>{username ? `@${username}` : "Loading..."} · {batches.length} active batch{batches.length !== 1 ? "es" : ""}</Text>
+          <Text style={styles.headerTitle}>{t("📦 My Batches")}</Text>
+          <Text style={styles.headerSub}>{username ? `@${username}` : "Loading..."} · {batches.length} {t("active batches")}</Text>
         </View>
         <TouchableOpacity onPress={onRefresh} style={styles.refreshBtn}>
           <Ionicons name="refresh" size={18} color="#fff" />
@@ -194,11 +196,11 @@ export default function BatchesScreen() {
 
       {/* Summary Bar — always show all 4 tiers */}
       <View style={styles.summaryBar}>
-        {(["Emergency", "Action", "Alert", "Normal"] as const).map(t => {
-          const count = batches.filter(b => b.tier === t).length;
+        {(["Emergency", "Action", "Alert", "Normal"] as const).map(tierName => {
+          const count = batches.filter(b => b.tier === tierName).length;
           return (
-            <View key={t} style={[styles.summaryChip, { backgroundColor: TIER_BG[t], borderWidth: 1.5, borderColor: TIER_COLOR[t] }]}>
-              <Text style={[styles.summaryChipText, { color: TIER_COLOR[t] }]}>{count} {t}</Text>
+            <View key={tierName} style={[styles.summaryChip, { backgroundColor: TIER_BG[tierName], borderWidth: 1.5, borderColor: TIER_COLOR[tierName] }]}>
+              <Text style={[styles.summaryChipText, { color: TIER_COLOR[tierName] }]}>{count} {t(tierName)}</Text>
             </View>
           );
         })}
@@ -206,7 +208,7 @@ export default function BatchesScreen() {
 
       {/* OHI Scale Bar */}
       <View style={styles.scaleBox}>
-        <Text style={styles.scaleTitle}>OHI Scale</Text>
+        <Text style={styles.scaleTitle}>{t("OHI Scale")}</Text>
         <View style={styles.scaleRow}>
           {([
             { label: "0–35", tier: "Emergency" },
@@ -216,7 +218,7 @@ export default function BatchesScreen() {
           ] as const).map(({ label, tier }) => (
             <View key={tier} style={[styles.scaleSegment, { backgroundColor: TIER_BG[tier] }]}>
               <View style={[styles.scaleDot, { backgroundColor: TIER_COLOR[tier] }]} />
-              <Text style={[styles.scaleTier, { color: TIER_COLOR[tier] }]}>{tier}</Text>
+              <Text style={[styles.scaleTier, { color: TIER_COLOR[tier] }]}>{t(tier)}</Text>
               <Text style={styles.scaleRange}>{label}</Text>
             </View>
           ))}
@@ -228,8 +230,8 @@ export default function BatchesScreen() {
       ) : batches.length === 0 ? (
         <View style={styles.center}>
           <Ionicons name="cube-outline" size={56} color="#D1D5DB" />
-          <Text style={styles.emptyTitle}>No batches found</Text>
-          <Text style={styles.emptySub}>Ask your admin to assign a crate to your account.</Text>
+          <Text style={styles.emptyTitle}>{t("No batches found")}</Text>
+          <Text style={styles.emptySub}>{t("Ask your admin to assign a crate to your account.")}</Text>
         </View>
       ) : (
         <FlatList
@@ -249,31 +251,31 @@ export default function BatchesScreen() {
               <ScrollView showsVerticalScrollIndicator={false}>
                 {/* Modal Header */}
                 <LinearGradient colors={TIER_GRAD[selected.tier]} style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>{selected.crateId.toUpperCase()}</Text>
-                  <Text style={styles.modalSub}>{selected.batchId.toUpperCase()}</Text>
+                  <Text style={styles.modalTitle}>{selected.crateId.replace(/crate/i, t("Crate")).toUpperCase()}</Text>
+                  <Text style={styles.modalSub}>{selected.batchId.replace(/batch/i, t("Batch")).toUpperCase()}</Text>
                   <View style={styles.modalOhiRow}>
                     <View style={styles.modalStat}>
                       <Text style={styles.modalStatBig}>{selected.ohi}</Text>
-                      <Text style={styles.modalStatLabel}>OHI Score</Text>
+                      <Text style={styles.modalStatLabel}>{t("OHI Score")}</Text>
                     </View>
                     <View style={styles.modalStat}>
                       <Text style={styles.modalStatBig}>{selected.daysRemaining}</Text>
-                      <Text style={styles.modalStatLabel}>Days Left</Text>
+                      <Text style={styles.modalStatLabel}>{t("Days Left")}</Text>
                     </View>
                     <View style={styles.modalStat}>
                       <Text style={styles.modalStatBig}>{Math.round((selected.confidence ?? 0.7) * 100)}%</Text>
-                      <Text style={styles.modalStatLabel}>Confidence</Text>
+                      <Text style={styles.modalStatLabel}>{t("Confidence")}</Text>
                     </View>
                   </View>
                 </LinearGradient>
 
                 {/* Sensor Grid */}
                 <View style={styles.sensorGrid}>
-                  <SensorTile icon="thermometer" label="Temperature" value={`${selected.temperature}°C`} color="#EF4444" />
-                  <SensorTile icon="water" label="Humidity" value={`${selected.humidity}%`} color="#3B82F6" />
-                  <SensorTile icon="cloud" label="CO₂ (MQ135)" value={`${selected.mq135} ppm`} color="#8B5CF6" />
-                  <SensorTile icon="warning" label="NH₃ (MQ137)" value={`${selected.mq137} ppm`} color="#F59E0B" />
-                  <SensorTile icon="flask" label="VOC (MQ136)" value={`${selected.mq136 ?? 0} ppm`} color="#10B981" />
+                  <SensorTile icon="thermometer" label={t("Temperature")} value={`${selected.temperature}°C`} color="#EF4444" />
+                  <SensorTile icon="water" label={t("Humidity")} value={`${selected.humidity}%`} color="#3B82F6" />
+                  <SensorTile icon="cloud" label={t("CO₂") + " (MQ135)"} value={`${selected.mq135} ppm`} color="#8B5CF6" />
+                  <SensorTile icon="warning" label={t("NH₃") + " (MQ137)"} value={`${selected.mq137} ppm`} color="#F59E0B" />
+                  <SensorTile icon="flask" label={t("VOC") + " (MQ136)"} value={`${selected.mq136 ?? 0} ppm`} color="#10B981" />
                 </View>
 
                 {/* Health Advisory */}
@@ -281,19 +283,19 @@ export default function BatchesScreen() {
                   <Ionicons name="bulb-outline" size={16} color={TIER_COLOR[selected.tier]} />
                   <Text style={[styles.advisoryText, { color: TIER_COLOR[selected.tier] }]}>
                     {selected.tier === "Normal"
-                      ? `Conditions are optimal. ${selected.daysRemaining} days of safe storage remaining.`
+                      ? t("Conditions are optimal.") + " " + selected.daysRemaining + " " + t("days of safe storage remaining")
                       : selected.tier === "Alert"
-                      ? `Slight deterioration detected. Monitor closely over the next 24–48 hours.`
+                      ? t("Slight deterioration detected. Monitor closely over the next 24–48 hours.")
                       : selected.tier === "Action"
-                      ? `Significant spoilage risk. Consider selling or moving to cold storage within 24 hours.`
-                      : `Critical — sell or discard immediately to prevent total loss.`}
+                      ? t("Significant spoilage risk. Consider selling within 24 hours.")
+                      : t("Critical — sell or discard immediately to prevent total loss.")}
                   </Text>
                 </View>
 
                 {/* Action Buttons */}
                 <View style={styles.actionRow}>
                   <TouchableOpacity style={styles.closeBtn} onPress={() => setSelected(null)}>
-                    <Text style={styles.closeBtnText}>Close</Text>
+                    <Text style={styles.closeBtnText}>{t("Close")}</Text>
                   </TouchableOpacity>
                   {!soldIds.has(`${selected.crateId}/${selected.batchId}`) && (
                     <TouchableOpacity
@@ -305,7 +307,7 @@ export default function BatchesScreen() {
                         ? <ActivityIndicator color="#fff" size="small" />
                         : <>
                             <Ionicons name="checkmark-circle-outline" size={18} color="#fff" />
-                            <Text style={styles.sellBtnText}>Mark as Harvested</Text>
+                            <Text style={styles.sellBtnText}>{t("Mark as Harvested")}</Text>
                           </>
                       }
                     </TouchableOpacity>

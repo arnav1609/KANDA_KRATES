@@ -1,5 +1,4 @@
 import { Groq } from "groq-sdk";
-import twilio from "twilio";
 import axios from "axios";
 
 // Twilio Config (Needs real credentials to actually send SMS, we will stub it for now securely)
@@ -7,7 +6,6 @@ const TWILIO_SID = process.env.TWILIO_SID || "AC_dummy_sid";
 const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || "dummy_token";
 const TWILIO_PHONE = process.env.TWILIO_PHONE || "+1234567890";
 
-const twilioClient = twilio(TWILIO_SID, TWILIO_AUTH_TOKEN);
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 // Track SMS sent so we don't spam the same alert
@@ -48,6 +46,7 @@ async function evaluateSpoliageRisk(crateId, sensorData) {
     Based on the Status Tier (${mlData.tier}), output a JSON payload giving a human reason for this status, and whether to trigger the ventilation fan or alert the farmer.
 
     Rule: If tier is Action or Emergency, actionRequired MUST be "TURN_ON_FAN" or "NOTIFY_FARMER".
+    Rule: NEVER recommend "cold storage" in your reason. This system is designed to replace cold storage.
     
     Respond STRICTLY in this JSON format:
     {
@@ -86,11 +85,18 @@ async function triggerEmergencySMS(farmerPhone, crateId, reason) {
     
     // Attempt to send if real credentials exist (we log instead of crashing if dummy)
     if (TWILIO_SID !== "AC_dummy_sid") {
-       await twilioClient.messages.create({
-        body: message,
-        from: TWILIO_PHONE,
-        to: farmerPhone
-      });
+       const auth = Buffer.from(`${TWILIO_SID}:${TWILIO_AUTH_TOKEN}`).toString("base64");
+       const params = new URLSearchParams();
+       params.append("From", TWILIO_PHONE);
+       params.append("To", farmerPhone);
+       params.append("Body", message);
+
+       await axios.post(`https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Messages.json`, params, {
+         headers: {
+           "Authorization": `Basic ${auth}`,
+           "Content-Type": "application/x-www-form-urlencoded"
+         }
+       });
     }
     
     console.log(`📱 SMS Sent to ${farmerPhone}: ${message}`);

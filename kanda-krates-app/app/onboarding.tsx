@@ -32,7 +32,7 @@ const SLIDES = [
     color: "#D97706",
     grad: ["#D97706", "#F59E0B"] as [string, string],
     title: "Act Before You Lose",
-    body: "Get emergency alerts when a batch is at risk. Sell or move to cold storage at the right moment — protect your income with data-driven decisions.",
+    body: "Get emergency alerts when a batch is at risk. Sell at the right moment — protect your income with data-driven decisions.",
     emoji: "💰",
   },
 ];

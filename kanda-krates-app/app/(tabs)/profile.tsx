@@ -1,11 +1,12 @@
 import React, { useState, useCallback, useEffect } from "react";
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Alert, ActivityIndicator, TextInput, RefreshControl
+  Alert, ActivityIndicator, TextInput, RefreshControl, Modal, FlatList
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "../../context/AuthContext";
+import { useLanguage, SUPPORTED_LANGUAGES, LANGUAGE_LABELS } from "../../context/LanguageContext";
 import { secureRequest, API_ENDPOINTS } from "../../config/api";
 import { useRouter } from "expo-router";
 
@@ -18,6 +19,8 @@ export default function ProfileScreen() {
   const [crates, setCrates] = useState<CrateInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const { language, setLanguage, t } = useLanguage();
+  const [langModalVisible, setLangModalVisible] = useState(false);
 
   // Password change
   const [showPwForm, setShowPwForm] = useState(false);
@@ -113,8 +116,8 @@ export default function ProfileScreen() {
                 <Ionicons name="cube" size={20} color={TIER_COLOR[c.tier]} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.crateId}>{c.crateId.toUpperCase()}</Text>
-                <Text style={styles.crateMeta}>OHI {c.ohi} · {c.daysRemaining} days remaining</Text>
+                <Text style={styles.crateId}>{c.crateId.toUpperCase().replace("CRATE", t("Crate").toUpperCase())}</Text>
+                <Text style={styles.crateMeta}>{t("OHI")} {c.ohi} · {c.daysRemaining} {t("days")}</Text>
               </View>
               <View style={[styles.tierDot, { backgroundColor: TIER_COLOR[c.tier] }]}>
                 <Text style={styles.tierDotText}>{c.tier}</Text>
@@ -126,7 +129,14 @@ export default function ProfileScreen() {
 
       {/* Account Settings */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>⚙️ Account Settings</Text>
+        <Text style={styles.sectionTitle}>⚙️ {t("Profile Settings")}</Text>
+
+        <TouchableOpacity style={styles.settingRow} onPress={() => setLangModalVisible(true)}>
+          <Ionicons name="language-outline" size={20} color="#1E6F5C" />
+          <Text style={styles.settingLabel}>{t("System Language")}</Text>
+          <Text style={{ color: "#1E6F5C", fontWeight: "600", marginRight: 8 }}>{LANGUAGE_LABELS[language]}</Text>
+          <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
+        </TouchableOpacity>
 
         <TouchableOpacity style={styles.settingRow} onPress={() => setShowPwForm(!showPwForm)}>
           <Ionicons name="lock-closed-outline" size={20} color="#1E6F5C" />
@@ -164,7 +174,7 @@ export default function ProfileScreen() {
 
         <TouchableOpacity style={[styles.settingRow, { marginTop: 8 }]} onPress={handleLogout}>
           <Ionicons name="log-out-outline" size={20} color="#DC2626" />
-          <Text style={[styles.settingLabel, { color: "#DC2626" }]}>Log Out</Text>
+          <Text style={[styles.settingLabel, { color: "#DC2626" }]}>{t("Logout")}</Text>
           <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
         </TouchableOpacity>
       </View>
@@ -174,6 +184,45 @@ export default function ProfileScreen() {
         <Ionicons name="leaf" size={14} color="#1E6F5C" />
         <Text style={styles.appInfoText}>Kanda Krates v2.0 · Smart Onion Storage</Text>
       </View>
+
+      {/* Language Picker Modal */}
+      <Modal visible={langModalVisible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{t("System Language")}</Text>
+              <TouchableOpacity onPress={() => setLangModalVisible(false)}>
+                <Ionicons name="close" size={24} color="#374151" />
+              </TouchableOpacity>
+            </View>
+
+            <FlatList
+              data={SUPPORTED_LANGUAGES}
+              keyExtractor={(item) => item}
+              numColumns={2}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.langOptionBtn,
+                    language === item && styles.langOptionBtnActive
+                  ]}
+                  onPress={() => {
+                    setLanguage(item);
+                    setLangModalVisible(false);
+                  }}
+                >
+                  <Text style={[
+                    styles.langOptionText,
+                    language === item && styles.langOptionTextActive
+                  ]}>
+                    {LANGUAGE_LABELS[item]}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -208,4 +257,14 @@ const styles = StyleSheet.create({
 
   appInfo: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 8 },
   appInfoText: { fontSize: 12, color: "#9CA3AF" },
+
+  // Modal Styles
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center", padding: 20 },
+  modalContent: { backgroundColor: "#fff", borderRadius: 24, width: "100%", maxHeight: "80%", padding: 24 },
+  modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 },
+  modalTitle: { fontSize: 18, fontWeight: "800", color: "#1A3C34" },
+  langOptionBtn: { flex: 1, margin: 6, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: "#E5E7EB", alignItems: "center", backgroundColor: "#FAFAFA" },
+  langOptionBtnActive: { borderColor: "#1E6F5C", backgroundColor: "#E1F2EE" },
+  langOptionText: { fontSize: 15, fontWeight: "600", color: "#4B5563" },
+  langOptionTextActive: { color: "#1E6F5C" }
 });
