@@ -1,0 +1,123 @@
+﻿≡ƒôè Generating synthetic training data (5000 samples)...
+python : Traceback 
+(most recent call 
+last):
+At line:1 char:1
++ python -X utf8 
+train_model.py 2>&1 | 
+Out-File -Encoding 
+utf8 train_ou ...
++ ~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~
+    + CategoryInfo     
+         : NotSpecifi  
+  ed: (Traceback (mo   
+ st recent call las    
+t)::String) [], Re    
+moteException
+    + FullyQualifiedEr 
+   rorId : NativeComm  
+  andError
+ 
+  File "C:\Users\Arnav 
+Bhandari\kandakratesv2\
+KANDAKRATESAPP\backend\
+ml_service\train_model.
+py", line 230, in 
+<module>
+    train_models()
+    ~~~~~~~~~~~~^^
+  File "C:\Users\Arnav 
+Bhandari\kandakratesv2\
+KANDAKRATESAPP\backend\
+ml_service\train_model.
+py", line 140, in 
+train_models
+    X_train, X_test, 
+y_tier_train, 
+y_tier_test = 
+train_test_split(
+                       
+                       
+   ~~~~~~~~~~~~~~~~^
+        X_scaled, 
+y_tier, test_size=0.2, 
+random_state=42, 
+stratify=y_tier
+        ^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
+^^^^
+    )
+    ^
+  File "C:\Python313\Li
+b\site-packages\sklearn
+\utils\_param_validatio
+n.py", line 218, in 
+wrapper
+    return func(*args, 
+**kwargs)
+  File "C:\Python313\Li
+b\site-packages\sklearn
+\model_selection\_split
+.py", line 2950, in 
+train_test_split
+    return list(
+        
+chain.from_iterable(
+            
+(_safe_indexing(a, 
+train), 
+_safe_indexing(a, 
+test)) for a in arrays
+        )
+    )
+  File "C:\Python313\Li
+b\site-packages\sklearn
+\model_selection\_split
+.py", line 2952, in 
+<genexpr>
+    (_safe_indexing(a, 
+train), 
+_safe_indexing(a, 
+test)) for a in arrays
+     ~~~~~~~~~~~~~~^^^^
+^^^^^^
+  File "C:\Python313\Li
+b\site-packages\sklearn
+\utils\_indexing.py", 
+line 375, in 
+_safe_indexing
+    return 
+_array_indexing(X, 
+indices, 
+indices_dtype, 
+axis=axis)
+  File "C:\Python313\Li
+b\site-packages\sklearn
+\utils\_indexing.py", 
+line 63, in 
+_array_indexing
+    return array[key, 
+...] if axis == 0 else 
+array[:, key]
+           
+~~~~~^^^^^^^^^^
+  File "C:\Python313\Li
+b\site-packages\pandas\
+core\arrays\arrow\array
+.py", line 797, in 
+__getitem__
+    value = 
+self._pa_array[item]
+            
+~~~~~~~~~~~~~~^^^^^^
+  File 
+"pyarrow\\table.pxi", 
+line 316, in pyarrow.li
+b.ChunkedArray.__getite
+m__
+TypeError: only 
+integer scalar arrays 
+can be converted to a 
+scalar index

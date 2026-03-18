@@ -1,0 +1,18 @@
+# dependencies
+node_modules/
+
+# environment
+.env
+.env.*
+
+# build
+dist/
+build/
+
+# Expo
+.expo/
+web-build/
+
+# OS junk
+.DS_Store
+Thumbs.db
