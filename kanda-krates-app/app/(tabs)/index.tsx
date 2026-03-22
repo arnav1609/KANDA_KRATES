@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  RefreshControl, ActivityIndicator
+  RefreshControl, ActivityIndicator, Modal
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -9,6 +9,7 @@ import { useRouter } from "expo-router";
 import { useAuth } from "../../context/AuthContext";
 import { secureRequest, API_ENDPOINTS } from "../../config/api";
 import { useLanguage } from "../../context/LanguageContext";
+import { verifySensorData, freezeSensorData, IntegrityResult } from "../../utils/dataIntegrity";
 
 type BatchSummary = { crateId: string; batchId: string; ohi: number; tier: string; daysRemaining: number; };
 type MarketPrice = { priceModal: number; priceMin: number; priceMax: number; unit: string; market: string; lastUpdated: string; } | null;
@@ -36,6 +37,11 @@ export default function FarmerHome() {
   const [market, setMarket] = useState<MarketPrice>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [globalIntegrity, setGlobalIntegrity] = useState<IntegrityResult>({
+    valid: true,
+    issues: [],
+  });
+  const [isHalted, setIsHalted] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -47,13 +53,35 @@ export default function FarmerHome() {
       // Sensor data
       if (sensorRes.status === "fulfilled" && sensorRes.value.ok) {
         const data = await sensorRes.value.json();
+        
+        let isCompromised = false;
+        let combinedIssues: string[] = [];
+
         const result: BatchSummary[] = [];
         for (const crateId of Object.keys(data)) {
           for (const batchId of Object.keys(data[crateId])) {
-            const ml = data[crateId][batchId]?.ml_predictions || {};
+            const bData = data[crateId][batchId];
+            const integrity = verifySensorData(bData, bData.dataHash);
+            
+            if (!integrity.valid) {
+              isCompromised = true;
+              combinedIssues.push(`[${batchId.toUpperCase()}] ${integrity.issues.join(", ")}`);
+            }
+            
+            const frozen = freezeSensorData(bData);
+            const ml = frozen?.ml_predictions || {};
             result.push({ crateId, batchId, ohi: ml.ohi ?? 50, tier: ml.tier ?? "Alert", daysRemaining: ml.daysRemaining ?? 10 });
           }
         }
+        
+        if (isCompromised) {
+           setGlobalIntegrity({ valid: false, issues: combinedIssues });
+           setIsHalted(true);
+        } else {
+           setGlobalIntegrity({ valid: true, issues: [] });
+           setIsHalted(false);
+        }
+
         result.sort((a, b) => a.ohi - b.ohi);
         setBatches(result);
       }
@@ -98,6 +126,25 @@ export default function FarmerHome() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1E6F5C" />}>
+
+      {/* FULL SCREEN LOCKDOWN MODAL */}
+      <Modal visible={isHalted} transparent={true} animationType="fade">
+        <View style={{ flex: 1, backgroundColor: 'rgba(127, 29, 29, 0.95)', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <Ionicons name="lock-closed" size={72} color="#FECACA" />
+          <Text style={{ fontSize: 32, fontWeight: '900', color: '#fff', marginTop: 16, textAlign: 'center', letterSpacing: 1 }}>
+            SYSTEM HALTED
+          </Text>
+          <Text style={{ fontSize: 16, color: '#FECACA', marginTop: 12, textAlign: 'center', lineHeight: 24, fontWeight: '600' }}>
+            {t("Tampered sensor payload detected. Real-time updates have been forcefully suspended to prevent database corruption.")}
+          </Text>
+          <View style={{ marginTop: 24, backgroundColor: 'rgba(0,0,0,0.5)', padding: 16, borderRadius: 12, width: '100%', borderWidth: 1, borderColor: '#B91C1C' }}>
+            <Text style={{ color: '#FCA5A5', fontWeight: 'bold', marginBottom: 8, fontSize: 12, textTransform: 'uppercase' }}>{t("Security Stack Trace")}</Text>
+            {globalIntegrity.issues.slice(0, 3).map((issue, idx) => (
+               <Text key={idx} style={{ color: '#FEE2E2', fontFamily: 'monospace', fontSize: 13, marginBottom: 8 }}>• {issue}</Text>
+            ))}
+          </View>
+        </View>
+      </Modal>
 
       {/* Header */}
       <LinearGradient colors={["#1E6F5C", "#2D917A"]} style={styles.header}>

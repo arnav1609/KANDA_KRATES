@@ -5,11 +5,15 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { useEffect } from 'react';
 import * as SecureStore from 'expo-secure-store';
-import { Platform } from 'react-native';
+import { Platform, LogBox } from 'react-native';
+
+// Suppress expected auth-flow warnings from showing as LogBox popups
+LogBox.ignoreLogs(['[Auth] Login failed', '[Security]', 'Non-serializable']);
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { LanguageProvider } from '../context/LanguageContext';
 import { AuthProvider } from '../context/AuthContext';
+
 
 export const unstable_settings = {
   anchor: '(tabs)',

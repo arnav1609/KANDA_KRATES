@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  RefreshControl,
   TouchableOpacity,
   Modal,
 } from "react-native";
@@ -117,6 +118,9 @@ export default function Dashboard() {
   const [marketPrice, setMarketPrice] = useState<any>(null);
   const [advisory, setAdvisory] = useState<any>(null);
 
+  // Rolling buffer for live trend chart — max 20 points
+  const [trendHistory, setTrendHistory] = useState<Array<{ time: string; temp: number; humidity: number }>>([]);
+
   /* ================= FETCH SENSOR DATA (SECURED) ================= */
 
   useEffect(() => {
@@ -149,6 +153,16 @@ export default function Dashboard() {
             ohi: 50, tier: "Alert", daysRemaining: 0, confidence: 0
           }
         });
+
+        // Append to live trend buffer
+        if (frozenData.temperature && frozenData.humidity) {
+          const now = new Date();
+          const label = `${now.getHours()}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
+          setTrendHistory(prev => {
+            const next = [...prev, { time: label, temp: frozenData.temperature, humidity: frozenData.humidity }];
+            return next.slice(-20); // Keep last 20 points
+          });
+        }
       } catch (err) {
         console.log("[Security] Sensor fetch error:", err);
       }
@@ -208,21 +222,24 @@ export default function Dashboard() {
         </TouchableOpacity>
       </View>
 
-      {/* Tamper Warning Banner */}
-      {!integrity.valid && (
-        <View style={styles.tamperBanner}>
-          <Ionicons name="alert-circle" size={20} color="#B91C1C" />
-          <View style={{ flex: 1, marginLeft: 8 }}>
-            <Text style={styles.tamperTitle}>{t("⚠️ Data integrity issue detected!")}</Text>
-            <Text style={styles.tamperText}>{t("Sensor data may have been tampered with. Please verify physically.")}</Text>
-            {integrity.issues.map((issue, idx) => (
-              <Text key={idx} style={styles.tamperIssue}>
-                • {issue}
-              </Text>
+      {/* FULL SCREEN LOCKDOWN MODAL */}
+      <Modal visible={!integrity.valid} transparent={true} animationType="fade">
+        <View style={{ flex: 1, backgroundColor: 'rgba(127, 29, 29, 0.95)', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <Ionicons name="lock-closed" size={72} color="#FECACA" />
+          <Text style={{ fontSize: 32, fontWeight: '900', color: '#fff', marginTop: 16, textAlign: 'center', letterSpacing: 1 }}>
+            SYSTEM HALTED
+          </Text>
+          <Text style={{ fontSize: 16, color: '#FECACA', marginTop: 12, textAlign: 'center', lineHeight: 24, fontWeight: '600' }}>
+            {t("Tampered sensor payload detected. Real-time updates have been forcefully suspended to prevent database corruption.")}
+          </Text>
+          <View style={{ marginTop: 24, backgroundColor: 'rgba(0,0,0,0.5)', padding: 16, borderRadius: 12, width: '100%', borderWidth: 1, borderColor: '#B91C1C' }}>
+            <Text style={{ color: '#FCA5A5', fontWeight: 'bold', marginBottom: 8, fontSize: 12, textTransform: 'uppercase' }}>{t("Security Stack Trace")}</Text>
+            {integrity.issues.slice(0, 3).map((issue, idx) => (
+               <Text key={idx} style={{ color: '#FEE2E2', fontFamily: 'monospace', fontSize: 13, marginBottom: 8 }}>• {issue}</Text>
             ))}
           </View>
         </View>
-      )}
+      </Modal>
 
       {/* Market Price Card */}
       {marketPrice && (
@@ -281,7 +298,7 @@ export default function Dashboard() {
 
       <OhiGauge value={ohi} t={t} />
 
-      <HistoryChart crateId="crate1" language={language} t={t} />
+      <HistoryChart trendHistory={trendHistory} crateId="crate1" language={language} t={t} />
 
       <View style={styles.grid}>
         <SensorCard
@@ -409,90 +426,99 @@ import { LineChart } from "react-native-chart-kit";
 import { Dimensions, ActivityIndicator } from "react-native";
 const { width } = Dimensions.get("window");
 
-function HistoryChart({ crateId, language, t }: { crateId: string, language: string, t: any }) {
-  const [chartData, setChartData] = useState<any>(null);
+function HistoryChart({ trendHistory, crateId, language, t }: { trendHistory: Array<{ time: string; temp: number; humidity: number }>; crateId: string; language: string; t: any }) {
   const [aiSummary, setAiSummary] = useState<string>("Loading AI Health Analysis...");
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function fetchHistory() {
+    async function fetchAi() {
       try {
-        setLoading(true);
-        // Load history data points
-        const histRes = await secureRequest(API_ENDPOINTS.history(crateId));
-        const history = await histRes.json();
-        
-        if (history && history.length > 0) {
-          // Format labels (HH:MM) and data for chart
-          const labels = history.map((h: any) => {
-             const d = new Date(h.timestamp);
-             return `${d.getHours()}:${d.getMinutes().toString().padStart(2, '0')}`;
-          });
-          const temps = history.map((h: any) => h.temperature);
-          const hums = history.map((h: any) => h.humidity);
-          
-          setChartData({
-            labels: labels.slice(-6), // Show only last 6 points to fit screen
-            datasets: [
-              { data: temps.slice(-6), color: () => '#EF4444', strokeWidth: 2 }, // Red Temp
-              { data: hums.slice(-6), color: () => '#3B82F6', strokeWidth: 2 }   // Blue Hum
-            ],
-            legend: [`${t("Temperature")} °C`, `${t("Humidity")} %`]
-          });
-        }
-
-        // Load AI Summary sentence
         const aiRes = await secureRequest(API_ENDPOINTS.historyHealth(crateId, language));
         const aiData = await aiRes.json();
         setAiSummary(aiData.summary);
-      } catch (err) {
-        console.log("Chart fetch error:", err);
+      } catch {
         setAiSummary(t("AI Analysis temporarily unavailable."));
-      } finally {
-        setLoading(false);
       }
     }
-    fetchHistory();
-    // Refresh history chart and AI summary every 5 minutes
-    const interval = setInterval(fetchHistory, 5 * 60 * 1000);
+    fetchAi();
+    const interval = setInterval(fetchAi, 60 * 1000);
     return () => clearInterval(interval);
   }, [crateId, language]);
 
-  if (loading && !chartData) {
-    return (
-      <View style={[styles.aiSummaryBox, { alignItems: 'center', justifyContent: 'center' }]}>
-         <ActivityIndicator size="small" color="#1E6F5C" />
-      </View>
-    );
-  }
+  const hasData = trendHistory.length >= 2;
+
+  const baseConfig = {
+    backgroundColor: "#ffffff",
+    backgroundGradientFrom: "#ffffff",
+    backgroundGradientTo: "#f8fafc",
+    decimalPlaces: 1,
+    labelColor: (opacity = 1) => `rgba(107, 114, 128, ${opacity})`,
+    style: { borderRadius: 16 },
+    propsForDots: { r: "4", strokeWidth: "2", stroke: "#fff" },
+    propsForBackgroundLines: { stroke: "#e5e7eb", strokeDasharray: "" },
+  };
+
+  const tempData = hasData ? {
+    labels: trendHistory.map(p => p.time),
+    datasets: [{ data: trendHistory.map(p => p.temp), color: () => '#EF4444', strokeWidth: 3 }],
+  } : null;
+
+  const humData = hasData ? {
+    labels: trendHistory.map(p => p.time),
+    datasets: [{ data: trendHistory.map(p => p.humidity), color: () => '#3B82F6', strokeWidth: 3 }],
+  } : null;
+
+  const placeholder = (
+    <View style={{ alignItems: 'center', justifyContent: 'center', height: 100, backgroundColor: '#f8fafc', borderRadius: 16, marginVertical: 8 }}>
+      <Ionicons name="pulse" size={28} color="#1E6F5C" style={{ marginBottom: 8 }} />
+      <Text style={{ color: '#6B7280', fontSize: 13 }}>{t("Collecting live data...")}</Text>
+    </View>
+  );
 
   return (
     <View style={styles.chartContainer}>
-      <Text style={styles.chartTitle}>{t("24-Hour Environment Trends")}</Text>
-      
-      {chartData ? (
-        <LineChart
-          data={chartData}
-          width={width - 40} // pad-20 each side
-          height={220}
-          chartConfig={{
-            backgroundColor: "#ffffff",
-            backgroundGradientFrom: "#ffffff",
-            backgroundGradientTo: "#ffffff",
-            decimalPlaces: 0,
-            color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-            labelColor: (opacity = 1) => `rgba(107, 114, 128, ${opacity})`,
-            style: { borderRadius: 16 },
-            propsForDots: { r: "4", strokeWidth: "2", stroke: "#fff" }
-          }}
-          bezier
-          style={{ marginVertical: 8, borderRadius: 16 }}
-        />
-      ) : (
-        <Text style={styles.chartEmpty}>{t("Not enough historical data collected yet.")}</Text>
-      )}
+      <Text style={styles.chartTitle}>{t("Live Environment Trends")}</Text>
 
-      {/* AI Health Explainer Box */}
+      {/* Temperature Chart */}
+      <View style={{ marginBottom: 16 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6, gap: 6 }}>
+          <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: '#EF4444' }} />
+          <Text style={{ fontSize: 13, fontWeight: '700', color: '#374151' }}>{t("Temperature")} °C</Text>
+        </View>
+        {hasData ? (
+          <LineChart
+            data={tempData!}
+            width={width - 40}
+            height={200}
+            chartConfig={{ ...baseConfig, color: (opacity = 1) => `rgba(239, 68, 68, ${opacity})` }}
+            bezier
+            style={{ borderRadius: 16 }}
+            withVerticalLabels={false}
+            withHorizontalLabels={true}
+          />
+        ) : placeholder}
+      </View>
+
+      {/* Humidity Chart */}
+      <View style={{ marginBottom: 8 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6, gap: 6 }}>
+          <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: '#3B82F6' }} />
+          <Text style={{ fontSize: 13, fontWeight: '700', color: '#374151' }}>{t("Humidity")} %</Text>
+        </View>
+        {hasData ? (
+          <LineChart
+            data={humData!}
+            width={width - 40}
+            height={200}
+            chartConfig={{ ...baseConfig, color: (opacity = 1) => `rgba(59, 130, 246, ${opacity})` }}
+            bezier
+            style={{ borderRadius: 16 }}
+            withVerticalLabels={false}
+            withHorizontalLabels={true}
+          />
+        ) : placeholder}
+      </View>
+
+      {/* AI Health Summary */}
       <View style={styles.aiSummaryBox}>
         <View style={styles.aiSummaryHeader}>
           <Ionicons name="sparkles" size={16} color="#8B5CF6" />

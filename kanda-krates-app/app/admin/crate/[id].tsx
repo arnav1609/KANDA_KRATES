@@ -3,7 +3,8 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState, useCallback } from "react";
 import { secureRequest } from "../../../config/api";
 import { Ionicons } from "@expo/vector-icons";
-import { TouchableOpacity } from "react-native";
+import { TouchableOpacity, Modal } from "react-native";
+import { verifySensorData, freezeSensorData, IntegrityResult } from "../../../utils/dataIntegrity";
 
 const TIER_COLOR: Record<string, string> = {
   Normal: "#16A34A", Alert: "#D97706", Action: "#EA580C", Emergency: "#DC2626"
@@ -19,6 +20,7 @@ type BatchData = {
   mq137: number;
   mq136: number;
   timestamp: number;
+  dataHash?: string;
   ml_predictions?: { ohi: number; tier: string; daysRemaining: number; confidence: number; };
 };
 
@@ -28,6 +30,11 @@ export default function CrateDetailScreen() {
   const [batches, setBatches] = useState<Record<string, BatchData>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  
+  const [globalIntegrity, setGlobalIntegrity] = useState<IntegrityResult>({
+    valid: true,
+    issues: [],
+  });
 
   const fetchCrateData = useCallback(async () => {
     if (!id) return;
@@ -35,7 +42,30 @@ export default function CrateDetailScreen() {
       const res = await secureRequest(`/api/sensors/${id}`);
       if (res.ok) {
         const data = await res.json();
-        setBatches(data);
+        
+        let isCompromised = false;
+        let combinedIssues: string[] = [];
+        
+        const frozenBatches: Record<string, BatchData> = {};
+        
+        for (const batchId of Object.keys(data)) {
+          const bData = data[batchId];
+          const integrity = verifySensorData(bData, bData.dataHash);
+          
+          if (!integrity.valid) {
+            isCompromised = true;
+            combinedIssues.push(`[${batchId.toUpperCase()}] ${integrity.issues.join(", ")}`);
+          }
+          
+          frozenBatches[batchId] = freezeSensorData(bData) as unknown as BatchData;
+        }
+        
+        setGlobalIntegrity({
+          valid: !isCompromised,
+          issues: combinedIssues
+        });
+        
+        setBatches(frozenBatches);
       }
     } catch (err) {
       console.log("Crate detail fetch error:", err);
@@ -83,6 +113,25 @@ export default function CrateDetailScreen() {
           contentContainerStyle={styles.scroll}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1E6F5C" />}
         >
+          {/* FULL SCREEN LOCKDOWN MODAL */}
+          <Modal visible={!globalIntegrity.valid} transparent={true} animationType="fade">
+            <View style={{ flex: 1, backgroundColor: 'rgba(127, 29, 29, 0.95)', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+              <Ionicons name="lock-closed" size={72} color="#FECACA" />
+              <Text style={{ fontSize: 32, fontWeight: '900', color: '#fff', marginTop: 16, textAlign: 'center', letterSpacing: 1 }}>
+                SYSTEM HALTED
+              </Text>
+              <Text style={{ fontSize: 16, color: '#FECACA', marginTop: 12, textAlign: 'center', lineHeight: 24, fontWeight: '600' }}>
+                Tampered sensor payload detected. Real-time updates have been forcefully suspended to prevent database corruption.
+              </Text>
+              <View style={{ marginTop: 24, backgroundColor: 'rgba(0,0,0,0.5)', padding: 16, borderRadius: 12, width: '100%', borderWidth: 1, borderColor: '#B91C1C' }}>
+                <Text style={{ color: '#FCA5A5', fontWeight: 'bold', marginBottom: 8, fontSize: 12, textTransform: 'uppercase' }}>Security Stack Trace</Text>
+                {globalIntegrity.issues.slice(0, 3).map((issue, idx) => (
+                   <Text key={idx} style={{ color: '#FEE2E2', fontFamily: 'monospace', fontSize: 13, marginBottom: 8 }}>• {issue}</Text>
+                ))}
+              </View>
+            </View>
+          </Modal>
+
           {batchKeys.map(batchId => {
             const b = batches[batchId];
             const ml = b.ml_predictions;
@@ -182,4 +231,9 @@ const styles = StyleSheet.create({
   sensorTile: { width: "46%", backgroundColor: "#F9FAFB", borderRadius: 14, padding: 12, alignItems: "center", gap: 4 },
   sensorValue: { fontSize: 16, fontWeight: "800", color: "#111827" },
   sensorLabel: { fontSize: 11, color: "#6B7280" },
+  
+  tamperBanner: { flexDirection: "row", backgroundColor: "#FEF2F2", padding: 16, borderRadius: 16, borderWidth: 1, borderColor: "#FECACA", gap: 12, marginBottom: 4 },
+  tamperTitle: { fontSize: 15, fontWeight: "800", color: "#991B1B", marginBottom: 4 },
+  tamperText: { fontSize: 13, color: "#B91C1C", fontWeight: "600", marginBottom: 8, lineHeight: 18 },
+  tamperIssue: { fontSize: 12, color: "#7F1D1D", marginBottom: 4, fontFamily: "monospace" },
 });

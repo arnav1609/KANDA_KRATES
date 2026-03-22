@@ -7,7 +7,7 @@ import * as SecureStore from "expo-secure-store";
 
 // ──── Base URL ────
 // Update this single value when switching environments
-export const API_BASE_URL = "http://192.168.1.10:5000";
+export const API_BASE_URL = "http://172.20.10.2:5000";
 
 // ──── Endpoints ────
 export const API_ENDPOINTS = {

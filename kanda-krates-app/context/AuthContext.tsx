@@ -114,8 +114,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const data = await response.json();
 
+      if (!response.ok) {
+        throw new Error(data.error || "Invalid login credentials.");
+      }
+
       // Extract token — backend may return it as `token`, `jwt`, or `accessToken`
-      const token = data.token || data.jwt || data.accessToken || `local_${Date.now()}`;
+      const token = data.token || data.jwt || data.accessToken;
 
       await secureSet("authToken", token);
       await secureSet("userRole", role);
@@ -132,7 +136,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log("[Auth] Login success:", username, "role:", role);
       return { success: true };
     } catch (error: any) {
-      console.error("[Auth] Login failed:", error);
+      console.warn("[Auth] Login failed:", error);
       return {
         success: false,
         error: error.message || "Could not connect to server",

@@ -256,7 +256,32 @@ export default function Credentials() {
   const handleLogin = async () => {
     if (!validate()) return;
     setLoading(true);
-    const result = await login(sanitizeInput(username), sanitizeInput(phoneNumber), password, isAdmin ? "admin" : "farmer");
+
+    // First attempt: try direct login
+    let result = await login(sanitizeInput(username), sanitizeInput(phoneNumber), password, isAdmin ? "admin" : "farmer");
+
+    // If login fails with invalid credentials, auto-register then retry login
+    if (!result.success && result.error?.toLowerCase().includes("invalid")) {
+      try {
+        const endpoint = isAdmin ? API_ENDPOINTS.adminRegister : API_ENDPOINTS.farmerRegister;
+        const regRes = await secureRequest(endpoint, {
+          method: "POST",
+          skipAuth: true,
+          body: JSON.stringify({
+            username: sanitizeInput(username),
+            phoneNumber: sanitizeInput(phoneNumber),
+            password,
+          }),
+        });
+        // If registration succeeded (201) or account already exists (409 — different password), retry login
+        if (regRes.status === 201) {
+          result = await login(sanitizeInput(username), sanitizeInput(phoneNumber), password, isAdmin ? "admin" : "farmer");
+        }
+      } catch {
+        // Registration failed — fall through to show original error
+      }
+    }
+
     setLoading(false);
     if (result.success) {
       router.replace(isAdmin ? "/admin/admin-dashboard" : "/(tabs)");

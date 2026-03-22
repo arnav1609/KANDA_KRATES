@@ -71,17 +71,29 @@ client.on("connect", () => {
 
 client.on("message", (topic, message) => {
   try {
-    const data = JSON.parse(message.toString());
-    /* topic example:
-       kanda/crate1/B1
-    */
+    const raw = message.toString();
     const parts = topic.split("/");
     const crate = parts[1];
     const batch = (parts[2] || "").trim().toLowerCase();
 
-    // Skip actuator feedback topics (e.g. kanda/crate1/fan) — not sensor data
-    const isActuator = batch.toLowerCase().includes("fan") || batch.toLowerCase().includes("actuator");
-    if (isActuator || !data.temperature || !data.humidity) {
+    // Skip actuator feedback topics (e.g. kanda/crate1/fan)
+    const isActuator = batch.includes("fan") || batch.includes("actuator");
+    if (isActuator) {
+      console.log(`🔧 Actuator msg ignored: ${topic}`);
+      return;
+    }
+
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      console.log(`⚠️  Non-JSON message on ${topic}: ${raw.substring(0, 80)}`);
+      return;
+    }
+
+    // Use explicit undefined check so value of 0 is still accepted
+    if (data.temperature === undefined || data.humidity === undefined) {
+      console.log(`⚠️  Missing temperature/humidity on ${topic}:`, Object.keys(data));
       return;
     }
 
@@ -89,14 +101,26 @@ client.on("message", (topic, message) => {
 
     sensorStore[crate][batch] = {
       temperature: data.temperature,
-      humidity: data.humidity,
-      mq135: data.mq135,
-      mq137: data.mq137,
-      mq136: data.mq136,
-      timestamp: Date.now()
+      humidity:    data.humidity,
+      mq135:       data.mq135  ?? 0,
+      mq137:       data.mq137  ?? 0,
+      mq136:       data.mq136  ?? 0,
+      timestamp:   Date.now()
     };
 
-    console.log("📊 Sensor update:", crate, batch);
+    console.log(`📡 [MQTT] ${topic} → temp:${data.temperature}°C  hum:${data.humidity}%  co2:${data.mq135}  nh3:${data.mq137}`);
+
+    // ── Persist to MongoDB so the trend chart stays fresh ──
+    SensorHistory.create({
+      crateId: crate,
+      batchId: batch,
+      temperature: data.temperature,
+      humidity:    data.humidity,
+      mq135:       data.mq135  ?? 0,
+      mq137:       data.mq137  ?? 0,
+      mq136:       data.mq136  ?? 0,
+      timestamp:   new Date()
+    }).catch(err => console.log("History save error:", err.message));
 
   } catch (err) {
     console.log("MQTT parse error:", err);
@@ -107,35 +131,7 @@ client.on("message", (topic, message) => {
 
 /* MongoDB Registration / Auth Logic ported from server.js */
 
-// POST endpoint to register or update a farmer entry
-app.post("/api/farmer", async (req, res) => {
-  const { username, phoneNumber, sensorData } = req.body;
-
-  if (!username || !phoneNumber || !sensorData) {
-    return res.status(400).json({ error: "Username, phone number, and sensor data are required." });
-  }
-
-  try {
-    // Check if the farmer already exists
-    let farmer = await Farmer.findOne({ username });
-
-    if (farmer) {
-      // Update existing farmer's phone number and sensor data
-      farmer.phoneNumber = phoneNumber;
-      farmer.sensorData = sensorData;
-      await farmer.save();
-      return res.status(200).json({ message: "Farmer data updated successfully." });
-    }
-
-    // Create a new farmer entry
-    farmer = new Farmer({ username, phoneNumber, sensorData });
-    await farmer.save();
-    res.status(201).json({ message: "Farmer data saved successfully." });
-  } catch (error) {
-    console.error("Error saving farmer data:", error);
-    res.status(500).json({ error: "Internal server error." });
-  }
-});
+// Legacy route removed: /api/farmer for hardware sensorData overrides duplicate auth route.
 
 // GET endpoint to retrieve all farmers
 app.get("/api/farmers", async (req, res) => {
@@ -245,7 +241,7 @@ app.get("/api/advisory/:crateId/:lang", async (req, res) => {
       let mlResult = { ohi: 50, tier: "Alert", daysRemaining: 7, confidence: 0.5 };
       
       try {
-        const mlResponse = await axios.post("http://127.0.0.1:5001/predict", {
+        const mlResponse = await axios.post("http://localhost:5001/predict", {
           temperature: batchData.temperature,
           humidity: batchData.humidity,
           co2: batchData.mq135 * 10,
@@ -385,12 +381,35 @@ app.get("/api/advisory/:crateId/:lang", async (req, res) => {
 /*                        LIVE MQTT SENSOR DATA                               */
 /* -------------------------------------------------------------------------- */
 
+/* ================= CYBERSECURITY PROTOCOL ================= */
+let MITM_ATTACK_ACTIVE = false;
+
+app.get("/api/hack/toggle", (req, res) => {
+  MITM_ATTACK_ACTIVE = !MITM_ATTACK_ACTIVE;
+  console.log(`\n🚨 CYBERSECURITY ALERT: Man-in-the-Middle Attack is now ${MITM_ATTACK_ACTIVE ? 'ACTIVE' : 'OFF'}! 🚨\n`);
+  res.json({ message: `Man-in-the-Middle Hacker Attack is now: ${MITM_ATTACK_ACTIVE ? 'ON' : 'OFF'}! Watch the app dashboard for the tamper detection freeze.` });
+});
+
+function computeSensorHash(data) {
+  const keys = Object.keys(data).sort();
+  const payload = keys
+    .filter((k) => typeof data[k] === "number")
+    .map((k) => `${k}:${data[k]}`)
+    .join("|");
+
+  let hash = 5381;
+  for (let i = 0; i < payload.length; i++) {
+    hash = (hash * 33) ^ payload.charCodeAt(i);
+  }
+  return (hash >>> 0).toString(16);
+}
+
 /* ML Microservice Helper */
 async function attachMLPredictions(sensorData) {
   if (!sensorData || Object.keys(sensorData).length === 0) return sensorData;
   
   try {
-    const mlResponse = await axios.post("http://127.0.0.1:5001/predict", {
+    const mlResponse = await axios.post("http://localhost:5001/predict", {
       temperature: sensorData.temperature,
       humidity: sensorData.humidity,
       co2: sensorData.mq135 * 10, // Rough proxy for CO2 based on MQ135 baseline
@@ -400,67 +419,114 @@ async function attachMLPredictions(sensorData) {
 
     const mlData = mlResponse.data;
     
-    return {
-      ...sensorData,
-      ml_predictions: {
-        ohi: mlData.ohi,
-        tier: mlData.tier,
-        daysRemaining: mlData.daysRemaining,
-        confidence: mlData.confidence
-      }
-    };
-  } catch (err) {
-    console.error("ML Service Error:", err.message);
-    // Fallback if ML service is down
-    return {
-      ...sensorData,
-      ml_predictions: {
-        ohi: 50,
-        tier: "Action", // Updated from Alert to Action for OHI 50
-        daysRemaining: 15,
-        confidence: 0
-      }
-    };
-  }
-}
-
-/* Live MQTT Sensor Read Endpoints */
-
-/* All crates */
-app.get("/api/sensors", async (req, res) => {
-  const result = {};
-  for (const crate of Object.keys(sensorStore)) {
-    result[crate] = {};
-    for (const batch of Object.keys(sensorStore[crate])) {
-      if (batch === "fan" || batch === "actuator") continue;
-      result[crate][batch] = await attachMLPredictions(sensorStore[crate][batch]);
+      const finalData = {
+        ...sensorData,
+        ml_predictions: {
+          ohi: mlData.ohi,
+          tier: mlData.tier,
+          daysRemaining: mlData.daysRemaining,
+          confidence: mlData.confidence
+        }
+      };
+      finalData.dataHash = computeSensorHash(finalData);
+      return finalData;
+    } catch (err) {
+      console.error("ML Service Error:", err.message);
+      // Fallback if ML service is down
+      const finalData = {
+        ...sensorData,
+        ml_predictions: {
+          ohi: 50,
+          tier: "Action", // Updated from Alert to Action for OHI 50
+          daysRemaining: 15,
+          confidence: 0
+        }
+      };
+      finalData.dataHash = computeSensorHash(finalData);
+      return finalData;
     }
   }
-  res.json(result);
-});
 
-/* Single crate */
-app.get("/api/sensors/:crate", async (req, res) => {
-  const crate = req.params.crate;
-  const store = sensorStore[crate] || {};
-  const result = {};
-  
-  for (const batch of Object.keys(store)) {
-    if (batch === "fan" || batch === "actuator") continue;
-    result[batch] = await attachMLPredictions(store[batch]);
+  /* ── Custom Sensor Injection (for live demo) ── */
+  let CUSTOM_INJECT = null; // stores { temperature, humidity, mq135, mq137 } or null
+
+  app.post("/api/hack/inject", (req, res) => {
+    const { temperature, humidity, mq135, mq137 } = req.body;
+    CUSTOM_INJECT = {};
+    if (temperature !== undefined) CUSTOM_INJECT.temperature = Number(temperature);
+    if (humidity    !== undefined) CUSTOM_INJECT.humidity    = Number(humidity);
+    if (mq135       !== undefined) CUSTOM_INJECT.mq135       = Number(mq135);
+    if (mq137       !== undefined) CUSTOM_INJECT.mq137       = Number(mq137);
+    console.log("[HACK] Custom inject active:", CUSTOM_INJECT);
+    res.json({ message: "Custom sensor values injected! App will detect tamper.", injected: CUSTOM_INJECT });
+  });
+
+  app.post("/api/hack/reset", (req, res) => {
+    CUSTOM_INJECT = null;
+    MITM_ATTACK_ACTIVE = false;
+    console.log("[HACK] All hacks cleared. Sensor data is now authentic.");
+    res.json({ message: "All hacks cleared. Sensor data is now authentic." });
+  });
+
+  function applyHackOverrides(data) {
+    if (MITM_ATTACK_ACTIVE) {
+      data.temperature = Math.floor(Math.random() * 500) - 100;
+      data.humidity    = Math.floor(Math.random() * 200);
+      data.mq135       = Math.floor(Math.random() * 80000);
+      data.mq137       = Math.floor(Math.random() * 2000);
+    } else if (CUSTOM_INJECT) {
+      Object.assign(data, CUSTOM_INJECT);
+    }
+    return data;
   }
-  
-  res.json(result);
-});
 
-/* Single batch */
-app.get("/api/sensors/:crate/:batch", async (req, res) => {
-  const { crate, batch } = req.params;
-  const data = sensorStore?.[crate]?.[batch] || {};
+  /* Live MQTT Sensor Read Endpoints */
   
-  const enhancedData = await attachMLPredictions(data);
-  res.json(enhancedData);
-});
+  /* All crates */
+  app.get("/api/sensors", async (req, res) => {
+    const result = {};
+    for (const crate of Object.keys(sensorStore)) {
+      result[crate] = {};
+      for (const batch of Object.keys(sensorStore[crate])) {
+        if (batch === "fan" || batch === "actuator") continue;
+        
+        let batchData = await attachMLPredictions(sensorStore[crate][batch]);
+        applyHackOverrides(batchData);
+        
+        result[crate][batch] = batchData;
+      }
+    }
+    res.json(result);
+  });
+  
+  /* Single crate */
+  app.get("/api/sensors/:crate", async (req, res) => {
+    const crate = req.params.crate;
+    const store = sensorStore[crate] || {};
+    const result = {};
+    
+    for (const batch of Object.keys(store)) {
+      if (batch === "fan" || batch === "actuator") continue;
+      
+      let batchData = await attachMLPredictions(store[batch]);
+      applyHackOverrides(batchData);
+      
+      result[batch] = batchData;
+    }
+    
+    res.json(result);
+  });
+  
+  /* Single batch */
+  app.get("/api/sensors/:crate/:batch", async (req, res) => {
+    const { crate, batch } = req.params;
+    const data = sensorStore?.[crate]?.[batch] || {};
+    
+    let enhancedData = await attachMLPredictions(data);
+    applyHackOverrides(enhancedData);
+    
+    res.json(enhancedData);
+  });
 
 
 /* ================= AUTH: FARMER ================= */
@@ -472,8 +538,8 @@ app.post("/api/farmer/register", async (req, res) => {
     if (!username || !phoneNumber || !password)
       return res.status(400).json({ error: "Username, phone, and password are required." });
 
-    const existing = await Farmer.findOne({ username });
-    if (existing) return res.status(409).json({ error: "Username already taken." });
+    const existing = await Farmer.findOne({ $or: [{ username }, { phoneNumber }] });
+    if (existing) return res.status(409).json({ error: "Account already exists, please login." });
 
     await Farmer.create({ username, phoneNumber, password });
     res.status(201).json({ message: "Farmer registered successfully!" });
@@ -526,7 +592,7 @@ app.post("/api/admin/register", async (req, res) => {
 
 const PORT = 5000;
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`\n🚀 Kanda Krates API running on http://127.0.0.1:${PORT}`);
+  console.log(`\n🚀 Kanda Krates API running on http://172.20.10.2:${PORT}`);
   console.log("🤖 Groq key loaded:", !!process.env.GROQ_API_KEY);
   console.log(`🤖 Agentic Monitor running every 60 seconds...`);
 
@@ -753,7 +819,7 @@ app.get("/api/analytics/fleet", async (req, res) => {
       for (const batchId of batches) {
         const data = sensorStore[crateId][batchId];
         try {
-          const mlRes = await axios.post("http://127.0.0.1:5001/predict", {
+          const mlRes = await axios.post("http://localhost:5001/predict", {
             temperature: data.temperature,
             humidity: data.humidity,
             co2: data.mq135 * 10,

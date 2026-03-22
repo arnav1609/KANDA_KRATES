@@ -19,7 +19,7 @@ async function evaluateSpoliageRisk(crateId, sensorData) {
     // 1. Get Objective Evaluation from the local ML Ensemble
     let mlData;
     try {
-      const mlRes = await axios.post("http://127.0.0.1:5001/predict", {
+      const mlRes = await axios.post("http://localhost:5001/predict", {
         temperature: sensorData.temperature,
         humidity: sensorData.humidity,
         co2: sensorData.mq135 * 10,
